@@ -1,9 +1,9 @@
 [submodule "pcb/kicad/kicad-footprints"]
 	path = pcb/kicad/kicad-footprints
 	url = https://github.com/KiCad/kicad-footprints
-[submodule "pcb/kicad/Keebio-Parts.pretty"]
-	path = pcb/kicad/Keebio-Parts.pretty
-	url = https://github.com/keebio/Keebio-Parts.pretty
-[submodule "pcb/kicad/kbd"]
-	path = pcb/kicad/kbd
-	url = https://github.com/foostan/kbd.git
+[submodule "pcb/kicad/keyswitches.pretty"]
+	path = pcb/kicad/keyswitches.pretty
+	url = https://github.com/daprice/keyswitches.pretty
+[submodule "pcb/kicad/jmdaly_keyboard_parts.pretty"]
+	path = pcb/kicad/jmdaly_keyboard_parts.pretty
+	url = https://gitlab.com/jmdaly/jmdaly_keyboard_parts.pretty.git

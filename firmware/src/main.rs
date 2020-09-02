@@ -4,14 +4,26 @@
 // set the panic handler
 use panic_halt as _;
 
+extern crate smart_leds;
+extern crate ws2812_spi;
+
+use smart_leds::{brightness, colors, SmartLedsWrite, RGB8};
+
+use ws2812_spi as ws2812;
+
 use core::convert::Infallible;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
-use generic_array::typenum::{U4, U6};
-use hal::gpio::{gpioa, gpiob, Floating, Input, Output, PullUp, PushPull};
+use generic_array::typenum::{U12, U5};
+use hal::gpio::{gpioa, gpiob, Alternate, Input, Output, PullUp, PushPull, AF0};
 use hal::prelude::*;
-use hal::serial;
+
+use embedded_hal::spi::FullDuplex;
+
 use hal::usb;
-use hal::{stm32, timers};
+use hal::{
+    spi::{EightBit, Mode, Phase, Polarity, Spi},
+    stm32, timers,
+};
 use keyberon::action::{k, l, m, Action, Action::*};
 use keyberon::debounce::Debouncer;
 use keyberon::impl_heterogenous_array;
@@ -19,15 +31,28 @@ use keyberon::key_code::KbHidReport;
 use keyberon::key_code::KeyCode::*;
 use keyberon::layout::{Event, Layout};
 use keyberon::matrix::{Matrix, PressedKeys};
-use nb::block;
+
 use rtic::app;
 use stm32f0xx_hal as hal;
 use usb_device::bus::UsbBusAllocator;
 use usb_device::class::UsbClass as _;
 use usb_device::device::UsbDeviceState;
 
-type UsbClass = keyberon::Class<'static, usb::UsbBusType, ()>;
-type UsbDevice = keyberon::Device<'static, usb::UsbBusType>;
+type UsbClass = keyberon::Class<
+    'static,
+    usb::UsbBusType,
+    Leds<
+        Spi<
+            stm32::SPI1,
+            gpioa::PA5<Alternate<AF0>>,
+            gpioa::PA6<Alternate<AF0>>,
+            gpioa::PA7<Alternate<AF0>>,
+            EightBit,
+        >,
+    >,
+>;
+
+type UsbDevice = usb_device::device::UsbDevice<'static, usb::UsbBusType>;
 
 trait ResultExt<T> {
     fn get(self) -> T;
@@ -42,18 +67,24 @@ impl<T> ResultExt<T> for Result<T, Infallible> {
 }
 
 pub struct Cols(
-    gpioa::PA15<Input<PullUp>>,
-    gpiob::PB3<Input<PullUp>>,
-    gpiob::PB4<Input<PullUp>>,
-    gpiob::PB5<Input<PullUp>>,
-    gpiob::PB8<Input<PullUp>>,
-    gpiob::PB9<Input<PullUp>>,
+    gpioa::PA0<Input<PullUp>>,  // 12
+    gpioa::PA1<Input<PullUp>>,  // 11
+    gpiob::PB13<Input<PullUp>>, // 10
+    gpiob::PB12<Input<PullUp>>, // 9
+    gpiob::PB14<Input<PullUp>>, // 8
+    gpiob::PB15<Input<PullUp>>, // 7
+    gpioa::PA15<Input<PullUp>>, // 6
+    gpiob::PB3<Input<PullUp>>,  // 5
+    gpiob::PB4<Input<PullUp>>,  // 4
+    gpiob::PB5<Input<PullUp>>,  // 3
+    gpiob::PB8<Input<PullUp>>,  // 2
+    gpiob::PB9<Input<PullUp>>,  // 1
 );
 impl_heterogenous_array! {
     Cols,
     dyn InputPin<Error = Infallible>,
-    U6,
-    [0, 1, 2, 3, 4, 5]
+    U12,
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 }
 
 pub struct Rows(
@@ -61,63 +92,75 @@ pub struct Rows(
     gpiob::PB1<Output<PushPull>>,
     gpiob::PB2<Output<PushPull>>,
     gpiob::PB10<Output<PushPull>>,
+    gpiob::PB11<Output<PushPull>>,
 );
 impl_heterogenous_array! {
     Rows,
     dyn OutputPin<Error = Infallible>,
-    U4,
-    [0, 1, 2, 3]
-}
-
-const CUT: Action = m(&[LShift, Delete]);
-const COPY: Action = m(&[LCtrl, Insert]);
-const PASTE: Action = m(&[LShift, Insert]);
-const L2_ENTER: Action = HoldTap {
-    timeout: 160,
-    hold: &l(2),
-    tap: &k(Enter),
-};
-const L1_SP: Action = HoldTap {
-    timeout: 160,
-    hold: &l(1),
-    tap: &k(Space),
-};
-const CSPACE: Action = m(&[LCtrl, Space]);
-macro_rules! s {
-    ($k:ident) => {
-        m(&[LShift, $k])
-    };
-}
-macro_rules! a {
-    ($k:ident) => {
-        m(&[RAlt, $k])
-    };
+    U5,
+    [0, 1, 2, 3, 4]
 }
 
 #[rustfmt::skip]
 pub static LAYERS: keyberon::layout::Layers = &[
     &[
-        &[k(Tab),     k(Q), k(W),  k(E),    k(R), k(T),    k(Y),     k(U),    k(I),   k(O),    k(P),     k(LBracket)],
-        &[k(RBracket),k(A), k(S),  k(D),    k(F), k(G),    k(H),     k(J),    k(K),   k(L),    k(SColon),k(Quote)   ],
-        &[k(Equal),   k(Z), k(X),  k(C),    k(V), k(B),    k(N),     k(M),    k(Comma),k(Dot), k(Slash), k(Bslash)  ],
-        &[Trans,      Trans,k(LGui),k(LAlt),L1_SP,k(LCtrl),k(RShift),L2_ENTER,k(RAlt),k(BSpace),Trans,   Trans      ],
-    ], &[
-        &[Trans,         k(Pause),Trans,     k(PScreen),Trans,    Trans,Trans,      Trans,  k(Delete),Trans,  Trans,   Trans ],
-        &[Trans,         Trans,   k(NumLock),k(Insert), k(Escape),Trans,k(CapsLock),k(Left),k(Down),  k(Up),  k(Right),Trans ],
-        &[k(NonUsBslash),k(Undo), CUT,       COPY,      PASTE,    Trans,Trans,      k(Home),k(PgDown),k(PgUp),k(End),  Trans ],
-        &[Trans,         Trans,   Trans,     Trans,     Trans,    Trans,Trans,      Trans,  Trans,    Trans,  Trans,   Trans ],
-    ], &[
-        &[s!(Grave),s!(Kb1),s!(Kb2),s!(Kb3),s!(Kb4),s!(Kb5),s!(Kb6),s!(Kb7),s!(Kb8),s!(Kb9),s!(Kb0),s!(Minus)],
-        &[ k(Grave), k(Kb1), k(Kb2), k(Kb3), k(Kb4), k(Kb5), k(Kb6), k(Kb7), k(Kb8), k(Kb9), k(Kb0), k(Minus)],
-        &[a!(Grave),a!(Kb1),a!(Kb2),a!(Kb3),a!(Kb4),a!(Kb5),a!(Kb6),a!(Kb7),a!(Kb8),a!(Kb9),a!(Kb0),a!(Minus)],
-        &[Trans,    Trans,  Trans,  Trans,  CSPACE, Trans,  Trans,  Trans,  Trans,  Trans,  Trans,  Trans    ],
+        &[k(Grave),  k(Kb1),k(Kb2),k(Kb3),  k(Kb4),k(Kb5), k(Kb6),   k(Kb7),  k(Kb8), k(Kb9),  k(Kb0),   k(Minus),  k(Space)],
+
+        &[k(Q),       k(W),       k(E),      k(R),    k(T),    k(Tab),    k(Y),      k(U),    k(I),     k(O),       k(P),      k(LBracket)],
+        &[k(A),       k(S),       k(D),      k(F),    k(G),    k(BSpace), k(H),      k(J),    k(K),     k(L),       k(SColon), k(Quote)],
+        &[k(Z),       k(X),       k(C),      k(V),    k(B),    k(Enter),  k(N),      k(M),    k(Comma), k(Dot),     k(Slash),  k(Bslash)  ],
+
+        &[k(LCtrl),   k(LShift), k(LGui),    l(1),    k(LAlt), k(Space),  k(Delete), k(RAlt), k(Equal), k(RBracket),k(RShift), k(RCtrl)],
+
     ], &[
         &[k(F1),k(F2),k(F3),k(F4),k(F5),k(F6),k(F7),k(F8),k(F9),k(F10),k(F11),k(F12)],
-        &[Trans,Trans,Trans,Trans,Trans,Trans,Trans,Trans,Trans,Trans, Trans, Trans ],
-        &[Trans,Trans,Trans,Trans,Trans,Trans,Trans,Trans,Trans,Trans, Trans, Trans ],
-        &[Trans,Trans,Trans,Trans,Trans,Trans,Trans,Trans,Trans,Trans, Trans, Trans ],
+
+        &[k(SysReq), k(NumLock), Trans, Trans,  Trans,  k(Escape),  k(Insert), k(PgUp), k(PgDown), Trans,    Trans, Trans ],
+        &[Trans    , Trans     , Trans, Trans,  Trans,  Trans,  k(Home),   k(Up),   k(End),    Trans,    Trans, Trans ],
+        &[Trans,     Trans,      Trans, Trans,  Trans,  Trans,  k(Left),   k(Down), k(Right),  Trans,    Trans, Trans ],
+        &[Trans,     Trans,      Trans, Trans,  Trans,  Trans,  Trans,     Trans,   Trans,     Trans,    Trans, Trans ],
     ],
 ];
+
+pub struct Leds<SPI> {
+    ws: ws2812::Ws2812<SPI>,
+    leds: [RGB8; 10],
+}
+
+impl<SPI, E> keyberon::keyboard::Leds for Leds<SPI>
+where
+    SPI: FullDuplex<u8, Error = E>,
+{
+    fn caps_lock(&mut self, status: bool) {
+        if status {
+            self.leds[0] = colors::BLUE;
+        } else {
+            self.leds[0] = colors::BLACK;
+        }
+        self.ws
+            .write(brightness(self.leds.iter().cloned(), 10));
+    }
+
+    fn num_lock(&mut self, status: bool) {
+        if status {
+            self.leds[1] = colors::GREEN;
+        } else {
+            self.leds[1] = colors::BLACK;
+        }
+        self.ws
+            .write(brightness(self.leds.iter().cloned(), 10));
+    }
+
+    fn compose(&mut self, status: bool) {
+        if status {
+            self.leds[3] = colors::VIOLET;
+        } else {
+            self.leds[3] = colors::BLACK;
+        }
+        self.ws
+            .write(brightness(self.leds.iter().cloned(), 10));
+    }
+}
 
 #[app(device = crate::hal::pac, peripherals = true)]
 const APP: () = {
@@ -125,12 +168,9 @@ const APP: () = {
         usb_dev: UsbDevice,
         usb_class: UsbClass,
         matrix: Matrix<Cols, Rows>,
-        debouncer: Debouncer<PressedKeys<U4, U6>>,
+        debouncer: Debouncer<PressedKeys<U5, U12>>,
         layout: Layout,
         timer: timers::Timer<stm32::TIM3>,
-        transpose: fn(Event) -> Event,
-        tx: serial::Tx<hal::pac::USART1>,
-        rx: serial::Rx<hal::pac::USART1>,
     }
 
     #[init]
@@ -158,32 +198,61 @@ const APP: () = {
         *USB_BUS = Some(usb::UsbBusType::new(usb));
         let usb_bus = USB_BUS.as_ref().unwrap();
 
-        let usb_class = keyberon::new_class(usb_bus, ());
+        // Handling of ws2812 leds
+
+        let pa5 = gpioa.pa5; // sck
+        let pa6 = gpioa.pa6; // miso
+        let pa7 = gpioa.pa7; // mosi
+
+        // Configure pins for SPI
+        let (sck, miso, mosi) = cortex_m::interrupt::free(move |cs| {
+            (
+                pa5.into_alternate_af0(cs),
+                pa6.into_alternate_af0(cs),
+                pa7.into_alternate_af0(cs),
+            )
+        });
+
+        const MODE: Mode = Mode {
+            polarity: Polarity::IdleHigh,
+            phase: Phase::CaptureOnSecondTransition,
+        };
+        let spi = Spi::spi1(
+            c.device.SPI1,
+            (sck, miso, mosi),
+            MODE,
+            3_000_000.hz(),
+            &mut rcc,
+        );
+
+        // ws2812
+        let mut ws = ws2812::Ws2812::new(spi);
+
+        let mut leds = Leds {
+            ws,
+            leds: [colors::BLACK; 10],
+        };
+        leds.ws.write(leds.leds.iter().cloned()).unwrap();
+
+        let usb_class = keyberon::new_class(usb_bus, leds);
         let usb_dev = keyberon::new_device(usb_bus);
 
         let mut timer = timers::Timer::tim3(c.device.TIM3, 1.khz(), &mut rcc);
         timer.listen(timers::Event::TimeOut);
 
-        let pb12: &gpiob::PB12<Input<Floating>> = &gpiob.pb12;
-        let is_left = pb12.is_low().get();
-        let transpose = if is_left {
-            transpose_left
-        } else {
-            transpose_right
-        };
-
-        let (pa9, pa10) = (gpioa.pa9, gpioa.pa10);
-        let pins = cortex_m::interrupt::free(move |cs| {
-            (pa9.into_alternate_af1(cs), pa10.into_alternate_af1(cs))
-        });
-        let mut serial = serial::Serial::usart1(c.device.USART1, pins, 38_400.bps(), &mut rcc);
-        serial.listen(serial::Event::Rxne);
-        let (tx, rx) = serial.split();
-
         let pa15 = gpioa.pa15;
+        let pa1 = gpioa.pa1;
+        let pa0 = gpioa.pa0;
+
         let matrix = cortex_m::interrupt::free(move |cs| {
             Matrix::new(
                 Cols(
+                    pa0.into_pull_up_input(cs),
+                    pa1.into_pull_up_input(cs),
+                    gpiob.pb13.into_pull_up_input(cs),
+                    gpiob.pb12.into_pull_up_input(cs),
+                    gpiob.pb14.into_pull_up_input(cs),
+                    gpiob.pb15.into_pull_up_input(cs),
                     pa15.into_pull_up_input(cs),
                     gpiob.pb3.into_pull_up_input(cs),
                     gpiob.pb4.into_pull_up_input(cs),
@@ -196,6 +265,7 @@ const APP: () = {
                     gpiob.pb1.into_push_pull_output(cs),
                     gpiob.pb2.into_push_pull_output(cs),
                     gpiob.pb10.into_push_pull_output(cs),
+                    gpiob.pb11.into_push_pull_output(cs),
                 ),
             )
         });
@@ -207,25 +277,6 @@ const APP: () = {
             debouncer: Debouncer::new(PressedKeys::default(), PressedKeys::default(), 5),
             matrix: matrix.get(),
             layout: Layout::new(LAYERS),
-            transpose,
-            tx,
-            rx,
-        }
-    }
-
-    #[task(binds = USART1, priority = 5, spawn = [handle_event], resources = [rx])]
-    fn rx(c: rx::Context) {
-        static mut BUF: [u8; 4] = [0; 4];
-
-        if let Ok(b) = c.resources.rx.read() {
-            BUF.rotate_left(1);
-            BUF[3] = b;
-
-            if BUF[3] == b'\n' {
-                if let Ok(event) = de(&BUF[..]) {
-                    c.spawn.handle_event(Some(event)).unwrap();
-                }
-            }
         }
     }
 
@@ -259,20 +310,12 @@ const APP: () = {
         binds = TIM3,
         priority = 2,
         spawn = [handle_event],
-        resources = [matrix, debouncer, timer, &transpose, tx],
+        resources = [matrix, debouncer, timer],
     )]
     fn tick(c: tick::Context) {
         c.resources.timer.wait().ok();
 
-        for event in c
-            .resources
-            .debouncer
-            .events(c.resources.matrix.get().get())
-            .map(c.resources.transpose)
-        {
-            for &b in &ser(event) {
-                block!(c.resources.tx.write(b)).get();
-            }
+        for event in c.resources.debouncer.events(c.resources.matrix.get().get()) {
             c.spawn.handle_event(Some(event)).unwrap();
         }
         c.spawn.handle_event(None).unwrap();
@@ -282,27 +325,3 @@ const APP: () = {
         fn CEC_CAN();
     }
 };
-
-fn transpose_left(e: Event) -> Event {
-    e
-}
-fn transpose_right(e: Event) -> Event {
-    match e {
-        Event::Press(i, j) => Event::Press(i, 11 - j),
-        Event::Release(i, j) => Event::Release(i, 11 - j),
-    }
-}
-
-fn de(bytes: &[u8]) -> Result<Event, ()> {
-    match *bytes {
-        [b'P', i, j, b'\n'] => Ok(Event::Press(i as usize, j as usize)),
-        [b'R', i, j, b'\n'] => Ok(Event::Release(i as usize, j as usize)),
-        _ => Err(()),
-    }
-}
-fn ser(e: Event) -> [u8; 4] {
-    match e {
-        Event::Press(i, j) => [b'P', i as u8, j as u8, b'\n'],
-        Event::Release(i, j) => [b'R', i as u8, j as u8, b'\n'],
-    }
-}

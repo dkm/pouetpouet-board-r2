@@ -1,0 +1,6 @@
+(fp_lib_table
+  (lib (name kicad-usb)(type KiCad)(uri ${KIPRJMOD}/../kicad-footprints/Connector_USB.pretty)(options "")(descr ""))
+  (lib (name kicad-harwin)(type KiCad)(uri ${KIPRJMOD}/../kicad-footprints/Connector_Harwin.pretty)(options "")(descr ""))
+  (lib (name jmdaly)(type KiCad)(uri ${KIPRJMOD}/../jmdaly_keyboard_parts.pretty)(options "")(descr ""))
+  (lib (name images)(type KiCad)(uri ${KIPRJMOD}/../pouetpouet-images.pretty)(options "")(descr ""))
+)
