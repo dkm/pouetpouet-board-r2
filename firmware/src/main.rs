@@ -21,7 +21,7 @@ use embedded_hal::spi::FullDuplex;
 
 use hal::usb;
 use hal::{
-    spi::{EightBit, Mode, Phase, Polarity, Spi},
+    spi::{EightBit, Mode, Phase, Polarity},
     stm32, timers,
 };
 use keyberon::action::{k, l, m, Action, Action::*};
@@ -38,19 +38,15 @@ use usb_device::bus::UsbBusAllocator;
 use usb_device::class::UsbClass as _;
 use usb_device::device::UsbDeviceState;
 
-type UsbClass = keyberon::Class<
-    'static,
-    usb::UsbBusType,
-    Leds<
-        Spi<
-            stm32::SPI1,
-            gpioa::PA5<Alternate<AF0>>,
-            gpioa::PA6<Alternate<AF0>>,
-            gpioa::PA7<Alternate<AF0>>,
-            EightBit,
-        >,
-    >,
+type Spi = hal::spi::Spi<
+    stm32::SPI1,
+    gpioa::PA5<Alternate<AF0>>,
+    gpioa::PA6<Alternate<AF0>>,
+    gpioa::PA7<Alternate<AF0>>,
+    EightBit,
 >;
+
+type UsbClass = keyberon::Class<'static, usb::UsbBusType, Leds<Spi>>;
 
 type UsbDevice = usb_device::device::UsbDevice<'static, usb::UsbBusType>;
 
