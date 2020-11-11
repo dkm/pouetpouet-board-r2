@@ -106,15 +106,15 @@ pub static LAYERS: keyberon::layout::Layers = &[
         &[k(A),       k(S),       k(D),      k(F),    k(G),    k(BSpace), k(H),      k(J),    k(K),     k(L),       k(SColon), k(Quote)],
         &[k(Z),       k(X),       k(C),      k(V),    k(B),    k(Enter),  k(N),      k(M),    k(Comma), k(Dot),     k(Slash),  k(Bslash)  ],
 
-        &[k(LCtrl),   k(LShift), k(LGui),    l(1),    k(LAlt), k(Space),  k(Delete), k(RAlt), k(Equal), k(RBracket),k(RShift), k(RCtrl)],
+        &[k(LCtrl),   l(1),    k(LGui), k(LShift),    k(LAlt), k(Space),  k(RAlt), k(RBracket), k(Equal), k(Delete),k(RShift), k(RCtrl)],
 
     ], &[
         &[k(F1),k(F2),k(F3),k(F4),k(F5),k(F6),k(F7),k(F8),k(F9),k(F10),k(F11),k(F12)],
 
         &[k(SysReq), k(NumLock), Trans, Trans,  Trans,  k(Escape),  k(Insert), k(PgUp), k(PgDown), Trans,    Trans, Trans ],
         &[Trans    , Trans     , Trans, Trans,  Trans,  Trans,  k(Home),   k(Up),   k(End),    Trans,    Trans, Trans ],
-        &[Trans,     Trans,      Trans, Trans,  Trans,  Trans,  k(Left),   k(Down), k(Right),  Trans,    Trans, Trans ],
-        &[Trans,     Trans,      Trans, Trans,  Trans,  Trans,  Trans,     Trans,   Trans,     Trans,    Trans, Trans ],
+        &[k(NonUsBslash), Trans,      Trans, Trans,  Trans,  Trans,  k(Left),   k(Down), k(Right),  Trans,    Trans, k(PgUp) ],
+        &[Trans,     Trans,      Trans, Trans,  Trans,  Trans,  Trans,     Trans,   Trans,     Trans,    Trans, k(PgDown) ],
     ],
 ];
 
@@ -133,8 +133,7 @@ where
         } else {
             self.leds[0] = colors::BLACK;
         }
-        self.ws
-            .write(brightness(self.leds.iter().cloned(), 10));
+        self.ws.write(brightness(self.leds.iter().cloned(), 10));
     }
 
     fn num_lock(&mut self, status: bool) {
@@ -143,8 +142,7 @@ where
         } else {
             self.leds[1] = colors::BLACK;
         }
-        self.ws
-            .write(brightness(self.leds.iter().cloned(), 10));
+        self.ws.write(brightness(self.leds.iter().cloned(), 10));
     }
 
     fn compose(&mut self, status: bool) {
@@ -153,8 +151,7 @@ where
         } else {
             self.leds[3] = colors::BLACK;
         }
-        self.ws
-            .write(brightness(self.leds.iter().cloned(), 10));
+        self.ws.write(brightness(self.leds.iter().cloned(), 10));
     }
 }
 
