@@ -55,7 +55,9 @@ Half of the parts have been soldered with a soldering iron (TS80P), the other
 half with hot air station. Clearly, with my [un]existing soldering skills, the
 hot air is a huge win. But I think I would have simply spent more time by only
 using the iron. Even the small sod-323 diodes without the `_handsoldering` pads
-(mistake) were not a real problem (tricky, but even I could do it).
+(mistake) were not a real problem (tricky, but even I could do it). For
+reference, I have soldered all SMD components for the second board under 2 hours
+with hot air.
 
 ![Diodes soldering](images/closeup-diodes.jpg)
 
@@ -87,23 +89,31 @@ layout](http://www.keyboard-layout-editor.com/##@_pcb:true;&@_c=#cf94ff&sm=cherr
 
 |Item                                                                      |Package|Qty|Remarks                                |Price |
 |--------------------------------------------------------------------------|-------|--:|---------------------------------------|-----:|
-| PCB                                                                      |       | 3 | [aisler](https://aisler.net/p/BWUOMHHS) |  86.40€  |
-| 100 nF                                                                   | 0805  | 5 | magic match aisler                    | 0    |
-| PRTR5V0U2X,215                                                           | sot-143| 1 |                                      | 0.43€ |
-| 4.7 uF                                                                   | 0805  | 2 |                                       | 0    |
-| 470 Ohm                                                                  | 0805  | 1 | magic match aisler                    | 0    |
-| TLV70233DBVR                                                             | sot-23| 1 | magic match aisler                    | 0.37€ |
-| 74LVC1G34GW,125                                                          |       | 1 | magic match aisler                    | 0.28€ |
-| 0805L050WR (500mA Polyfuse)                                              | 0805  | 1 | magic match aisler                    | 1.91€ |
-| RS282G05A3SMRT (micro switch)                                            |       | 2 | magic match aisler                    | 1.26€ |
-| 100nF                                                                    | 0805  | 2 | magic match aisler                    | 0 |
-| 5.1 kOhm                                                                 | 0805  | 3 | magic match aisler                    | 0 |
-| 0805L050WR (500mA Polyfuse)                                              | 0805  | 1 | magic match aisler                    | 0 |
-| 1N4148WS-7-F                                                             | sod-323 | 60|                                     |   |
-| [WS2812B](https://www.aliexpress.com/item/4000750610574.html?spm=a2g0s.9042311.0.0.27424c4dS3DGkH)                                                                  |       | 10|                                       | 1€  |
-| [USB TypeC HRO Receptacle](https://www.aliexpress.com/item/33056042016.html?spm=a2g0s.9042311.0.0.1d8b4c4d8WcR7j)                                                 |       | 1 |                                       |   |
-| Gateron Switch                                                           |       | 60|                                       |   |
-| Keycaps                                                                  |       | 60|                                       |   |
+| PCB                                                                      |       | 1 | [aisler](https://aisler.net/p/BWUOMHHS) (by 3 mini) |  28.80€  |
+| 100 nF                                                                   | 0805  | 5 |  aisler*                                 | 0€    |
+| PRTR5V0U2X,215                                                           | sot-143| 1 | aisler*                                 | 0.43€ |
+| 4.7 uF                                                                   | 0805  | 2 |  aisler*                                 | 0€    |
+| 470 Ohm                                                                  | 0805  | 1 |  aisler*                                 | 0€    |
+| TLV70233DBVR                                                             | sot-23| 1 |  aisler*                                 | 0.37€ |
+| 74LVC1G34GW,125                                                          |       | 1 |  aisler*                                 | 0.28€ |
+| 0805L050WR (500mA Polyfuse)                                              | 0805  | 1 |  aisler*                                 | 1.91€ |
+| RS282G05A3SMRT (micro switch)                                            |       | 2 |  aisler*                                 | 1.26€ |
+| 100nF                                                                    | 0805  | 2 |  aisler*                                 | 0€ |
+| 5.1 kOhm                                                                 | 0805  | 3 |  aisler*                                 | 0€ |
+| 0805L050WR (500mA Polyfuse)                                              | 0805  | 1 |  aisler*                                 | 0€ |
+| [1N4148WS-7-F](https://fr.rs-online.com/web/p/diodes-de-commutation/7384737/) | sod-323 | 60|   rs-online (by 200)                  | 3.24€  |
+| [WS2812B](https://www.aliexpress.com/item/4000750610574.html?spm=a2g0s.9042311.0.0.27424c4dS3DGkH) |       | 10|                                       | 1€  |
+| [USB TypeC HRO Receptacle](https://www.aliexpress.com/item/33056042016.html?spm=a2g0s.9042311.0.0.1d8b4c4d8WcR7j) |       | 1 |  by 10 mini   | 0.25€  |
+| [Gateron Switch 5-pin](https://fr.aliexpress.com/item/32797603005.html?spm=a2g0s.9042311.0.0.72906c37zAMdzk) |       | 60| by 65                                   | 15.24€ |
+| [Blank DSA Keycaps](https://fr.aliexpress.com/item/32850729893.html?spm=a2g0s.9042311.0.0.3c4b6c37vkQ3vr)    |       | 60| by 200                                   | 15.6€  |
+| [STM32F072CBT6](https://fr.aliexpress.com/item/4000419148272.html?spm=a2g0s.9042311.0.0.43286c37wfyZHW)      | LQFP48 | 1 |                                         | 2.87€ | 
+
+The total for 3 keyboard is 71.25€. Beware that some parts can't be ordered for
+the exact amount and you need to buy more (in particular, aisler won't do
+anything under 3 units, so you need to spend at least ~90€ for 3 PCBs).
+
+*: Bought using magic match from Aisler. Some components are then
+ «free» (resistor, capacitor) and some are not.
 
 ## Compiling and flashing
 
