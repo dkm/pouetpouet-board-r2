@@ -29,9 +29,9 @@ use keyberon::debounce::Debouncer;
 use keyberon::impl_heterogenous_array;
 use keyberon::key_code::KbHidReport;
 use keyberon::key_code::KeyCode::*;
+use keyberon::key_code::KeyCode::{self, *};
 use keyberon::layout::{Event, Layout};
 use keyberon::matrix::{Matrix, PressedKeys};
-
 use rtic::app;
 use stm32f0xx_hal as hal;
 use usb_device::bus::UsbBusAllocator;
@@ -280,41 +280,38 @@ const APP: () = {
         }
     }
 
-    #[task(priority = 3, capacity = 8, resources = [usb_dev, usb_class, layout])]
-    fn handle_event(mut c: handle_event::Context, event: Option<Event>) {
-        let report: KbHidReport = match event {
-            None => c.resources.layout.tick().collect(),
-            Some(e) => c.resources.layout.event(e).collect(),
-        };
-        if !c
-            .resources
-            .usb_class
-            .lock(|k| k.device_mut().set_keyboard_report(report.clone()))
-        {
-            return;
-        }
-        if c.resources.usb_dev.lock(|d| d.state()) != UsbDeviceState::Configured {
-            return;
-        }
-        while let Ok(0) = c.resources.usb_class.lock(|k| k.write(report.as_bytes())) {}
-    }
-
     #[task(
         binds = TIM3,
         priority = 2,
-        spawn = [handle_event],
-        resources = [matrix, debouncer, timer],
+        resources = [matrix, debouncer, timer, layout, usb_class],
     )]
-    fn tick(c: tick::Context) {
+    fn tick(mut c: tick::Context) {
         c.resources.timer.wait().ok();
 
-        for event in c.resources.debouncer.events(c.resources.matrix.get().get()) {
-            c.spawn.handle_event(Some(event)).unwrap();
+        for event in c
+            .resources
+            .debouncer
+            .events(c.resources.matrix.get().unwrap())
+        {
+            c.resources.layout.event(event);
         }
-        c.spawn.handle_event(None).unwrap();
+        match c.resources.layout.tick() {
+            _ => (),
+        }
+
+        c.resources.layout.tick();
+        send_report(c.resources.layout.keycodes(), &mut c.resources.usb_class);
     }
 
     extern "C" {
         fn CEC_CAN();
     }
 };
+
+fn send_report(iter: impl Iterator<Item = KeyCode>, usb_class: &mut resources::usb_class<'_>) {
+    use rtic::Mutex;
+    let report: KbHidReport = iter.collect();
+    if usb_class.lock(|k| k.device_mut().set_keyboard_report(report.clone())) {
+        while let Ok(0) = usb_class.lock(|k| k.write(report.as_bytes())) {}
+    }
+}
