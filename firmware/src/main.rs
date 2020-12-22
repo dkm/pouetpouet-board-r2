@@ -12,9 +12,13 @@ use smart_leds::{brightness, colors, SmartLedsWrite, RGB8};
 use ws2812_spi as ws2812;
 
 use core::convert::Infallible;
+
 use embedded_hal::digital::v2::{InputPin, OutputPin};
+
 use generic_array::typenum::{U12, U5};
+
 use hal::gpio::{gpioa, gpiob, Alternate, Input, Output, PullUp, PushPull, AF0};
+
 use hal::prelude::*;
 
 use embedded_hal::spi::FullDuplex;
@@ -24,20 +28,22 @@ use hal::{
     spi::{EightBit, Mode, Phase, Polarity},
     stm32, timers,
 };
+
 use keyberon::action::{k, l, m, Action, Action::*};
 use keyberon::debounce::Debouncer;
 use keyberon::impl_heterogenous_array;
 use keyberon::key_code::KbHidReport;
+use keyberon::key_code::KeyCode;
 use keyberon::key_code::KeyCode::*;
-use keyberon::key_code::KeyCode::{self, *};
-use keyberon::layout::{Event, Layout};
+use keyberon::layout::Layout;
 use keyberon::matrix::{Matrix, PressedKeys};
+
 use rtic::app;
+
 use stm32f0xx_hal as hal;
+
 use usb_device::bus::UsbBusAllocator;
 use usb_device::class::UsbClass as _;
-use usb_device::device::UsbDeviceState;
-
 type Spi = hal::spi::Spi<
     stm32::SPI1,
     gpioa::PA5<Alternate<AF0>>,
@@ -97,24 +103,32 @@ impl_heterogenous_array! {
     [0, 1, 2, 3, 4]
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum CustomActions {
+    LightUp,
+    LightDown,
+
+    ModeCycle,
+    ColorCycle,
+    FreqUp,
+    FreqDown,
+}
+
 #[rustfmt::skip]
-pub static LAYERS: keyberon::layout::Layers = &[
+pub static LAYERS: keyberon::layout::Layers<CustomActions> = &[
     &[
-        &[k(Grave),  k(Kb1),k(Kb2),k(Kb3),  k(Kb4),k(Kb5), k(Kb6),   k(Kb7),  k(Kb8), k(Kb9),  k(Kb0),   k(Minus),  k(Space)],
-
-        &[k(Q),       k(W),       k(E),      k(R),    k(T),    k(Tab),    k(Y),      k(U),    k(I),     k(O),       k(P),      k(LBracket)],
-        &[k(A),       k(S),       k(D),      k(F),    k(G),    k(BSpace), k(H),      k(J),    k(K),     k(L),       k(SColon), k(Quote)],
-        &[k(Z),       k(X),       k(C),      k(V),    k(B),    k(Enter),  k(N),      k(M),    k(Comma), k(Dot),     k(Slash),  k(Bslash)  ],
-
-        &[k(LCtrl),   l(1),    k(LGui), k(LShift),    k(LAlt), k(Space),  k(RAlt), k(RBracket), k(Equal), k(Delete),k(RShift), k(RCtrl)],
+        &[k(Kb1),     k(Kb2),     k(Kb3),    k(Kb4),     k(Kb5),  k(Grave),  k(Kb6),    k(Kb7),      k(Kb8),   k(Kb9),    k(Kb0),    k(Minus)],
+        &[k(Q),       k(W),       k(E),      k(R),       k(T),    k(Tab),    k(Y),      k(U),        k(I),     k(O),      k(P),      k(LBracket)],
+        &[k(A),       k(S),       k(D),      k(F),       k(G),    k(BSpace), k(H),      k(J),        k(K),     k(L),      k(SColon), k(Quote)],
+        &[k(Z),       k(X),       k(C),      k(V),       k(B),    k(Enter),  k(N),      k(M),        k(Comma), k(Dot),    k(Slash),  k(Bslash)  ],
+        &[k(LCtrl),   l(1),       k(LGui),   k(LShift),  k(LAlt), k(Space),  k(RAlt),   k(RBracket), k(Equal), k(Delete), k(RShift), k(RCtrl)],
 
     ], &[
-        &[k(F1),k(F2),k(F3),k(F4),k(F5),k(F6),k(F7),k(F8),k(F9),k(F10),k(F11),k(F12)],
-
-        &[k(SysReq), k(NumLock), Trans, Trans,  Trans,  k(Escape),  k(Insert), k(PgUp), k(PgDown), Trans,    Trans, Trans ],
-        &[Trans    , Trans     , Trans, Trans,  Trans,  Trans,  k(Home),   k(Up),   k(End),    Trans,    Trans, Trans ],
-        &[k(NonUsBslash), Trans,      Trans, Trans,  Trans,  Trans,  k(Left),   k(Down), k(Right),  Trans,    Trans, k(PgUp) ],
-        &[Trans,     Trans,      Trans, Trans,  Trans,  Trans,  Trans,     Trans,   Trans,     Trans,    Trans, k(PgDown) ],
+        &[k(F1),          k(F2),      k(F3), k(F4),  k(F5),  k(F6),     k(F7),     k(F8),   k(F9),     k(F10), k(F11), k(F12)],
+        &[k(SysReq),      k(NumLock), Trans, Trans,  Trans,  k(Escape), k(Insert), k(PgUp), k(PgDown), Trans,  Trans,  Trans ],
+        &[Trans    ,      Trans     , Trans, Trans,  Trans,  Trans,     k(Home),   k(Up),   k(End),    Trans,  Trans,  Trans ],
+        &[k(NonUsBslash), Action::Custom(CustomActions::ColorCycle),      Action::Custom(CustomActions::FreqUp), Action::Custom(CustomActions::FreqDown),  Trans,  Trans,     k(Left),   k(Down), k(Right),  Trans,  Trans,  k(PgUp) ],
+        &[Action::Custom(CustomActions::LightUp),          Trans,      Action::Custom(CustomActions::LightDown), Action::Custom(CustomActions::ModeCycle),  Trans,  Trans,     Trans,     Trans,   Trans,     Trans,  Trans, Trans],
     ],
 ];
 
@@ -155,6 +169,195 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum BacklightMode {
+    Off,
+    Solid(RGB8),
+    Circling(RGB8, usize, usize, usize, bool),
+    Breath(RGB8, usize, usize, bool),
+}
+
+pub struct Backlight {
+    mode: BacklightMode,
+    brightness: u8,
+}
+
+trait ColorSeq {
+    fn next_color(&self) -> RGB8;
+}
+
+const COLORS_SEQ: [RGB8; 5] = [
+    colors::RED,
+    colors::GREEN,
+    colors::BLUE,
+    colors::VIOLET,
+    colors::YELLOW,
+];
+
+impl ColorSeq for RGB8 {
+    fn next_color(&self) -> RGB8 {
+        let mut next = false;
+
+        for c in &COLORS_SEQ {
+            if next {
+                return *c;
+            }
+
+            if *self == *c {
+                next = true;
+            }
+        }
+
+        COLORS_SEQ[0]
+    }
+}
+
+impl Backlight {
+    pub fn next_mode(&mut self) {
+        self.mode = match self.mode {
+            BacklightMode::Off => BacklightMode::Solid(colors::RED),
+            BacklightMode::Solid(_) => BacklightMode::Circling(colors::RED, 100, 0, 0, true),
+            BacklightMode::Circling(_, _, _, _, _) => {
+                BacklightMode::Breath(colors::RED, 10, 0, true)
+            }
+            BacklightMode::Breath(_, _, _, _) => BacklightMode::Off,
+        }
+    }
+
+    pub fn change_freq(&mut self, up: bool) {
+        self.mode = match self.mode {
+            BacklightMode::Breath(c, tstep, step, dir) => {
+                let tstep = if up {
+                    if tstep - 10 > 10 {
+                        tstep - 10
+                    } else {
+                        10
+                    }
+                } else {
+                    if tstep + 10 < 1000 {
+                        tstep + 10
+                    } else {
+                        1000
+                    }
+                };
+                BacklightMode::Breath(c, tstep, step, dir)
+            }
+            BacklightMode::Circling(c, tstep, step, i, dir) => {
+                let tstep = if up {
+                    if tstep - 10 > 10 {
+                        tstep - 10
+                    } else {
+                        10
+                    }
+                } else {
+                    if tstep + 10 < 1000 {
+                        tstep + 10
+                    } else {
+                        1000
+                    }
+                };
+                BacklightMode::Circling(c, tstep, step, i, dir)
+            }
+            any => any,
+        }
+    }
+
+    pub fn next_color(&mut self) {
+        self.mode = match self.mode {
+            BacklightMode::Solid(c) => BacklightMode::Solid(c.next_color()),
+            BacklightMode::Breath(c, tstep, step, dir) => {
+                BacklightMode::Breath(c.next_color(), tstep, step, dir)
+            }
+            BacklightMode::Circling(c, ts, s, i, dir) => {
+                BacklightMode::Circling(c.next_color(), ts, s, i, dir)
+            }
+            any => any,
+        }
+    }
+
+    pub fn refresh_leds(&mut self, leds: &mut Leds<Spi>) {
+        self.mode = match self.mode {
+            BacklightMode::Off => {
+                for l in leds.leds[4..].iter_mut() {
+                    *l = colors::BLACK;
+                }
+                BacklightMode::Off
+            }
+
+            BacklightMode::Solid(c) => {
+                for l in leds.leds[4..].iter_mut() {
+                    *l = c;
+                }
+                BacklightMode::Solid(c)
+            }
+
+            BacklightMode::Breath(c, tstep, step, dir) => {
+                let mut step = step + 1;
+                let mut new_dir = dir;
+
+                if step >= tstep {
+                    step = 0;
+
+                    for l in leds.leds[4..].iter_mut() {
+                        *l = c;
+                    }
+
+                    if dir {
+                        if self.brightness == 100 {
+                            self.brightness -= 1;
+                            new_dir = false;
+                        }
+                        self.brightness += 1;
+                    } else {
+                        if self.brightness == 5 {
+                            self.brightness += 1;
+                            new_dir = true;
+                        }
+                        self.brightness -= 1;
+                    }
+                }
+
+                BacklightMode::Breath(c, tstep, step, new_dir)
+            }
+
+            BacklightMode::Circling(c, tstep, step, index, dir) => {
+                let mut new_dir = dir;
+                let mut new_index = index;
+
+                let mut step = step + 1;
+
+                if step >= tstep {
+                    step = 0;
+
+                    if new_index == 0 && !dir {
+                        new_index = 0;
+                        new_dir = true;
+                    } else if new_index == 6 && dir {
+                        new_index = 6;
+                        new_dir = false;
+                    } else {
+                        new_index = if dir { index + 1 } else { index - 1 };
+                    }
+                }
+
+                for (i, l) in leds.leds[4..].iter_mut().enumerate() {
+                    let ni = if new_index == 0 { 5 } else { new_index - 1 };
+                    if i == ni {
+                        *l = c;
+                    } else {
+                        *l = colors::BLACK;
+                    }
+                }
+                BacklightMode::Circling(c, tstep, step, new_index as usize, new_dir)
+            }
+            any => any,
+        };
+
+        leds.ws
+            .write(brightness(leds.leds.iter().cloned(), self.brightness));
+    }
+}
+
 #[app(device = crate::hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
@@ -162,8 +365,10 @@ const APP: () = {
         usb_class: UsbClass,
         matrix: Matrix<Cols, Rows>,
         debouncer: Debouncer<PressedKeys<U5, U12>>,
-        layout: Layout,
+        layout: Layout<CustomActions>,
         timer: timers::Timer<stm32::TIM3>,
+
+        backlight: Backlight,
     }
 
     #[init]
@@ -219,7 +424,7 @@ const APP: () = {
         );
 
         // ws2812
-        let mut ws = ws2812::Ws2812::new(spi);
+        let ws = ws2812::Ws2812::new(spi);
 
         let mut leds = Leds {
             ws,
@@ -270,6 +475,11 @@ const APP: () = {
             debouncer: Debouncer::new(PressedKeys::default(), PressedKeys::default(), 5),
             matrix: matrix.get(),
             layout: Layout::new(LAYERS),
+
+            backlight: Backlight {
+                mode: BacklightMode::Off,
+                brightness: 8,
+            },
         }
     }
 
@@ -283,9 +493,9 @@ const APP: () = {
     #[task(
         binds = TIM3,
         priority = 2,
-        resources = [matrix, debouncer, timer, layout, usb_class],
+        resources = [matrix, debouncer, timer, layout, usb_class, backlight],
     )]
-    fn tick(mut c: tick::Context) {
+    fn tick(c: tick::Context) {
         c.resources.timer.wait().ok();
 
         for event in c
@@ -295,12 +505,49 @@ const APP: () = {
         {
             c.resources.layout.event(event);
         }
+        let mut usb_class = c.resources.usb_class;
+        let backlight = c.resources.backlight;
+
         match c.resources.layout.tick() {
+            keyberon::layout::CustomEvent::Release(CustomActions::LightUp) => {
+                let bl_val = &mut backlight.brightness;
+                *bl_val = if *bl_val == 100 { 100 } else { *bl_val + 1 };
+                usb_class.lock(|k| {
+                    let leds = k.device_mut().leds();
+                    leds.ws
+                        .write(brightness(leds.leds.iter().cloned(), *bl_val));
+                });
+            }
+            keyberon::layout::CustomEvent::Release(CustomActions::LightDown) => {
+                let bl_val = &mut backlight.brightness;
+                *bl_val = if *bl_val == 0 { 0 } else { *bl_val - 1 };
+                usb_class.lock(|k| {
+                    let leds = k.device_mut().leds();
+                    leds.ws
+                        .write(brightness(leds.leds.iter().cloned(), *bl_val));
+                });
+            }
+            keyberon::layout::CustomEvent::Release(CustomActions::ColorCycle) => {
+                backlight.next_color();
+            }
+            keyberon::layout::CustomEvent::Release(CustomActions::ModeCycle) => {
+                backlight.next_mode();
+            }
+            keyberon::layout::CustomEvent::Release(CustomActions::FreqUp) => {
+                backlight.change_freq(true);
+            }
+            keyberon::layout::CustomEvent::Release(CustomActions::FreqDown) => {
+                backlight.change_freq(false);
+            }
             _ => (),
         }
 
+        usb_class.lock(|k| {
+            backlight.refresh_leds(&mut k.device_mut().leds());
+        });
+
         c.resources.layout.tick();
-        send_report(c.resources.layout.keycodes(), &mut c.resources.usb_class);
+        send_report(c.resources.layout.keycodes(), &mut usb_class);
     }
 
     extern "C" {
