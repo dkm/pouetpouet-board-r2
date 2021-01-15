@@ -17,8 +17,8 @@ use embedded_hal::digital::v2::{InputPin, OutputPin};
 
 use generic_array::typenum::{U12, U5};
 
+use hal::delay::Delay;
 use hal::gpio::{gpioa, gpiob, Alternate, Input, Output, PullUp, PushPull, AF0};
-
 use hal::prelude::*;
 
 use embedded_hal::spi::FullDuplex;
@@ -374,7 +374,6 @@ const APP: () = {
     #[init]
     fn init(mut c: init::Context) -> init::LateResources {
         static mut USB_BUS: Option<UsbBusAllocator<usb::UsbBusType>> = None;
-
         let mut rcc = c
             .device
             .RCC
@@ -424,12 +423,21 @@ const APP: () = {
         );
 
         // ws2812
-        let ws = ws2812::Ws2812::new(spi);
+        let mut ws = ws2812::Ws2812::new(spi);
+
+        // Do a simple smooth blink at start
+        let mut delay = Delay::new(c.core.SYST, &rcc);
+        let mut tmpleds = [colors::GREEN; 10];
+        for i in (0..100).chain((0..100).rev()) {
+            ws.write(brightness(tmpleds.iter().cloned(), i)).unwrap();
+            delay.delay_ms(5u8);
+        }
 
         let mut leds = Leds {
             ws,
             leds: [colors::BLACK; 10],
         };
+
         leds.ws.write(leds.leds.iter().cloned()).unwrap();
 
         let usb_class = keyberon::new_class(usb_bus, leds);
