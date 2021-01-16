@@ -521,7 +521,7 @@ const APP: () = {
                 let bl_val = &mut backlight.brightness;
                 *bl_val = if *bl_val == 100 { 100 } else { *bl_val + 1 };
                 usb_class.lock(|k| {
-                    let leds = k.device_mut().leds();
+                    let leds = k.device_mut().leds_mut();
                     leds.ws
                         .write(brightness(leds.leds.iter().cloned(), *bl_val));
                 });
@@ -530,7 +530,7 @@ const APP: () = {
                 let bl_val = &mut backlight.brightness;
                 *bl_val = if *bl_val == 0 { 0 } else { *bl_val - 1 };
                 usb_class.lock(|k| {
-                    let leds = k.device_mut().leds();
+                    let leds = k.device_mut().leds_mut();
                     leds.ws
                         .write(brightness(leds.leds.iter().cloned(), *bl_val));
                 });
@@ -551,7 +551,7 @@ const APP: () = {
         }
 
         usb_class.lock(|k| {
-            backlight.refresh_leds(&mut k.device_mut().leds());
+            backlight.refresh_leds(&mut k.device_mut().leds_mut());
         });
 
         c.resources.layout.tick();
