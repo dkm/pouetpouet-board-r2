@@ -125,10 +125,10 @@ pub static LAYERS: keyberon::layout::Layers<CustomActions> = &[
 
     ], &[
         &[k(F1),          k(F2),      k(F3), k(F4),  k(F5),  k(F6),     k(F7),     k(F8),   k(F9),     k(F10), k(F11), k(F12)],
-        &[k(SysReq),      k(NumLock), Trans, Trans,  Trans,  k(Escape), k(Insert), k(PgUp), k(PgDown), Trans,  Trans,  Trans ],
+        &[k(SysReq),      k(NumLock), Trans, Trans,  Trans,  k(Escape), k(Insert), k(PgUp), k(PgDown), k(VolUp),  k(VolDown),  k(Mute) ],
         &[Trans    ,      Trans     , Trans, Trans,  Trans,  Trans,     k(Home),   k(Up),   k(End),    Trans,  Trans,  Trans ],
-        &[k(NonUsBslash), Action::Custom(CustomActions::ColorCycle),      Action::Custom(CustomActions::FreqUp), Action::Custom(CustomActions::FreqDown),  Trans,  Trans,     k(Left),   k(Down), k(Right),  Trans,  Trans,  k(PgUp) ],
-        &[Action::Custom(CustomActions::LightUp),          Trans,      Action::Custom(CustomActions::LightDown), Action::Custom(CustomActions::ModeCycle),  Trans,  Trans,     Trans,     Trans,   Trans,     Trans,  Trans, Trans],
+        &[k(NonUsBslash), Action::Custom(CustomActions::ColorCycle), Action::Custom(CustomActions::FreqUp), Action::Custom(CustomActions::FreqDown), Trans, Trans, k(Left), k(Down), k(Right), Trans, Trans, k(PgUp) ],
+        &[Action::Custom(CustomActions::LightUp), Trans, Action::Custom(CustomActions::LightDown), Action::Custom(CustomActions::ModeCycle), Trans, Trans, Trans, Trans, Trans, Trans, Trans, k(PgDown)],
     ],
 ];
 
