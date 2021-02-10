@@ -38,8 +38,6 @@ The goal was:
 ## Usefull resources
  * [Mechanical Keyboard](https://github.com/help-14/mechanical-keyboard) is a list of DIY keyboards
  * [Awesome Mechanical Keyboard](https://github.com/BenRoe/awesome-mechanical-keyboard) is another [«awesome»](https://github.com/topics/awesome) list
- * [help-14](https://github.com/help-14/mechanical-keyboard) for making a nice
-   list of existing keyboard;
  * [Masterzen](http://www.masterzen.fr/2020/05/03/designing-a-keyboard-part-1/)
    and many others for writing online tutorials for newbies like me.
 
