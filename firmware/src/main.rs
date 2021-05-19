@@ -29,12 +29,11 @@ use hal::{
     stm32, timers,
 };
 
-use keyberon::action::{k, l, m, Action, Action::*};
+use keyberon::action::Action;
 use keyberon::debounce::Debouncer;
 use keyberon::impl_heterogenous_array;
 use keyberon::key_code::KbHidReport;
 use keyberon::key_code::KeyCode;
-use keyberon::key_code::KeyCode::*;
 use keyberon::layout::Layout;
 use keyberon::matrix::{Matrix, PressedKeys};
 
@@ -114,23 +113,37 @@ pub enum CustomActions {
     FreqDown,
 }
 
+#[cfg(not(feature = "testmode"))]
 #[rustfmt::skip]
-pub static LAYERS: keyberon::layout::Layers<CustomActions> = &[
-    &[
-        &[k(Kb1),     k(Kb2),     k(Kb3),    k(Kb4),     k(Kb5),  k(Grave),  k(Kb6),    k(Kb7),      k(Kb8),   k(Kb9),    k(Kb0),    k(Minus)],
-        &[k(Q),       k(W),       k(E),      k(R),       k(T),    k(Tab),    k(Y),      k(U),        k(I),     k(O),      k(P),      k(LBracket)],
-        &[k(A),       k(S),       k(D),      k(F),       k(G),    k(BSpace), k(H),      k(J),        k(K),     k(L),      k(SColon), k(Quote)],
-        &[k(Z),       k(X),       k(C),      k(V),       k(B),    k(Enter),  k(N),      k(M),        k(Comma), k(Dot),    k(Slash),  k(Bslash)  ],
-        &[k(LCtrl),   l(1),       k(LGui),   k(LShift),  k(LAlt), k(Space),  k(RAlt),   k(RBracket), k(Equal), k(Delete), k(RShift), k(RCtrl)],
 
-    ], &[
-        &[k(F1),          k(F2),      k(F3), k(F4),  k(F5),  k(F6),     k(F7),     k(F8),   k(F9),     k(F10), k(F11), k(F12)],
-        &[k(SysReq),      k(NumLock), Trans, Trans,  Trans,  k(Escape), k(Insert), k(PgUp), k(PgDown), k(VolUp),  k(VolDown),  k(Mute) ],
-        &[Trans    ,      Trans     , Trans, Trans,  Trans,  Trans,     k(Home),   k(Up),   k(End),    Trans,  Trans,  Trans ],
-        &[k(NonUsBslash), Action::Custom(CustomActions::ColorCycle), Action::Custom(CustomActions::FreqUp), Action::Custom(CustomActions::FreqDown), Trans, Trans, k(Left), k(Down), k(Right), Trans, Trans, k(PgUp) ],
-        &[Action::Custom(CustomActions::LightUp), Trans, Action::Custom(CustomActions::LightDown), Action::Custom(CustomActions::ModeCycle), Trans, Trans, Trans, Trans, Trans, Trans, Trans, k(PgDown)],
-    ],
-];
+pub static LAYERS: keyberon::layout::Layers<CustomActions> = keyberon::layout::layout! {
+    {
+        [Kb1   Kb2 Kb3  Kb4    Kb5  Grave  Kb6  Kb7      Kb8   Kb9    Kb0    Minus]
+        [Q     W   E    R      T    Tab    Y    U        I     O      P      LBracket]
+        [A     S   D    F      G    BSpace H    J        K     L      SColon Quote]
+        [Z     X   C    V      B    Enter  N    M        Comma Dot    Slash  Bslash  ]
+        [LCtrl (1) LGui LShift LAlt Space  RAlt RBracket Equal Delete RShift RCtrl]
+    }
+    {
+        [F1          F2      F3 F4  F5 F6     F7     F8   F9     F10   F11     F12]
+        [SysReq      NumLock t  t   t  Escape Insert PgUp PgDown VolUp VolDown Mute ]
+        [t           t       t  t   t  t      Home   Up   End    t     t       t ]
+        [NonUsBslash {Action::Custom(CustomActions::ColorCycle)} {Action::Custom(CustomActions::FreqUp)} {Action::Custom(CustomActions::FreqDown)} t t Left Down Right t t PgUp ]
+        [{Action::Custom(CustomActions::LightUp)} t {Action::Custom(CustomActions::LightDown)} {Action::Custom(CustomActions::ModeCycle)} t t t t t t t PgDown]
+    }
+};
+
+#[cfg(feature = "testmode")]
+#[rustfmt::skip]
+pub static LAYERS: keyberon::layout::Layers<CustomActions> = keyberon::layout::layout! {
+    {
+        [A, A, A, A, A, A, A, A, A, A, A, A],
+        [A, A, A, A, A, A, A, A, A, A, A, A],
+        [A, A, A, A, A, A, A, A, A, A, A, A],
+        [A, A, A, A, A, A, A, A, A, A, A, A],
+        [A, A, A, A, A, A, A, A, A, A, A, A],
+    }
+};
 
 pub struct Leds<SPI> {
     ws: ws2812::Ws2812<SPI>,
@@ -350,7 +363,6 @@ impl Backlight {
                 }
                 BacklightMode::Circling(c, tstep, step, new_index as usize, new_dir)
             }
-            any => any,
         };
 
         leds.ws
@@ -427,7 +439,7 @@ const APP: () = {
 
         // Do a simple smooth blink at start
         let mut delay = Delay::new(c.core.SYST, &rcc);
-        let mut tmpleds = [colors::GREEN; 10];
+        let tmpleds = [colors::GREEN; 10];
         for i in (0..100).chain((0..100).rev()) {
             ws.write(brightness(tmpleds.iter().cloned(), i)).unwrap();
             delay.delay_ms(5u8);
