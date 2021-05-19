@@ -8,6 +8,7 @@ The goal was:
 * continue to learn embedded rust
 * have fun
 
+![PouetPouet Nyan](images/nyan-keeb.jpg)
 ![PouetPouet](images/pouetpouet.jpg)
 ![PouetPouet closeup](images/closeup-finish.jpg)
 
