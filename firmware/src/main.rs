@@ -4,21 +4,30 @@
 // set the panic handler
 use panic_halt as _;
 
+use core::convert::Infallible;
+
+use hal::prelude::*;
+use hal::serial;
+//use hal::usb;
+use keyberon::layout::{CustomEvent, Event, Layout};
+use keyberon::matrix::{Matrix, PressedKeys};
+use nb::block;
+use rtic::app;
+use stm32f0xx_hal as hal;
+use usb_device::bus::UsbBusAllocator;
+use usb_device::class::UsbClass as _;
+use usb_device::device::UsbDeviceState;
+
 extern crate smart_leds;
 extern crate ws2812_spi;
-
 use smart_leds::{brightness, colors, SmartLedsWrite, RGB8};
 
 use ws2812_spi as ws2812;
 
-use core::convert::Infallible;
-
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 
-use generic_array::typenum::{U12, U5};
-
 use hal::delay::Delay;
-use hal::gpio::{gpioa, gpiob, Alternate, Input, Output, PullUp, PushPull, AF0};
+use hal::gpio::{gpioa, gpiob, Alternate, Input, Output, Pin, PullUp, PushPull, AF0};
 use hal::prelude::*;
 
 use embedded_hal::spi::FullDuplex;
@@ -31,17 +40,9 @@ use hal::{
 
 use keyberon::action::Action;
 use keyberon::debounce::Debouncer;
-use keyberon::impl_heterogenous_array;
 use keyberon::key_code::KbHidReport;
 use keyberon::key_code::KeyCode;
-use keyberon::layout::Layout;
-use keyberon::matrix::{Matrix, PressedKeys};
 
-use rtic::app;
-
-use stm32f0xx_hal as hal;
-
-use usb_device::bus::UsbBusAllocator;
 use usb_device::class::UsbClass as _;
 type Spi = hal::spi::Spi<
     stm32::SPI1,
@@ -65,41 +66,6 @@ impl<T> ResultExt<T> for Result<T, Infallible> {
             Err(e) => match e {},
         }
     }
-}
-
-pub struct Cols(
-    gpioa::PA0<Input<PullUp>>,  // 12
-    gpioa::PA1<Input<PullUp>>,  // 11
-    gpiob::PB13<Input<PullUp>>, // 10
-    gpiob::PB12<Input<PullUp>>, // 9
-    gpiob::PB14<Input<PullUp>>, // 8
-    gpiob::PB15<Input<PullUp>>, // 7
-    gpioa::PA15<Input<PullUp>>, // 6
-    gpiob::PB3<Input<PullUp>>,  // 5
-    gpiob::PB4<Input<PullUp>>,  // 4
-    gpiob::PB5<Input<PullUp>>,  // 3
-    gpiob::PB8<Input<PullUp>>,  // 2
-    gpiob::PB9<Input<PullUp>>,  // 1
-);
-impl_heterogenous_array! {
-    Cols,
-    dyn InputPin<Error = Infallible>,
-    U12,
-    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-}
-
-pub struct Rows(
-    gpiob::PB0<Output<PushPull>>,
-    gpiob::PB1<Output<PushPull>>,
-    gpiob::PB2<Output<PushPull>>,
-    gpiob::PB10<Output<PushPull>>,
-    gpiob::PB11<Output<PushPull>>,
-);
-impl_heterogenous_array! {
-    Rows,
-    dyn OutputPin<Error = Infallible>,
-    U5,
-    [0, 1, 2, 3, 4]
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -375,8 +341,8 @@ const APP: () = {
     struct Resources {
         usb_dev: UsbDevice,
         usb_class: UsbClass,
-        matrix: Matrix<Cols, Rows>,
-        debouncer: Debouncer<PressedKeys<U5, U12>>,
+        matrix: Matrix<Pin<Input<PullUp>>, Pin<Output<PushPull>>, 12, 5>,
+        debouncer: Debouncer<PressedKeys<12, 5>>,
         layout: Layout<CustomActions>,
         timer: timers::Timer<stm32::TIM3>,
 
@@ -464,29 +430,29 @@ const APP: () = {
 
         let matrix = cortex_m::interrupt::free(move |cs| {
             Matrix::new(
-                Cols(
-                    pa0.into_pull_up_input(cs),
-                    pa1.into_pull_up_input(cs),
-                    gpiob.pb13.into_pull_up_input(cs),
-                    gpiob.pb12.into_pull_up_input(cs),
-                    gpiob.pb14.into_pull_up_input(cs),
-                    gpiob.pb15.into_pull_up_input(cs),
-                    pa15.into_pull_up_input(cs),
-                    gpiob.pb3.into_pull_up_input(cs),
-                    gpiob.pb4.into_pull_up_input(cs),
-                    gpiob.pb5.into_pull_up_input(cs),
-                    gpiob.pb8.into_pull_up_input(cs),
-                    gpiob.pb9.into_pull_up_input(cs),
-                ),
-                Rows(
-                    gpiob.pb0.into_push_pull_output(cs),
-                    gpiob.pb1.into_push_pull_output(cs),
-                    gpiob.pb2.into_push_pull_output(cs),
-                    gpiob.pb10.into_push_pull_output(cs),
-                    gpiob.pb11.into_push_pull_output(cs),
-                ),
-            )
-        });
+                [
+                    pa0.into_pull_up_input(cs).downgrade(),
+                    pa1.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb13.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb12.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb14.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb15.into_pull_up_input(cs).downgrade(),
+                    pa15.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb3.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb4.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb5.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb8.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb9.into_pull_up_input(cs).downgrade(),
+                ],
+                [
+                    gpiob.pb0.into_push_pull_output(cs).downgrade(),
+                    gpiob.pb1.into_push_pull_output(cs).downgrade(),
+                    gpiob.pb2.into_push_pull_output(cs).downgrade(),
+                    gpiob.pb10.into_push_pull_output(cs).downgrade(),
+                    gpiob.pb11.into_push_pull_output(cs).downgrade(),
+
+                ],
+            )});
 
         init::LateResources {
             usb_dev,
