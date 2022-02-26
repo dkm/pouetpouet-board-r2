@@ -6,17 +6,12 @@ use panic_halt as _;
 
 use core::convert::Infallible;
 
-use hal::prelude::*;
-use hal::serial;
-//use hal::usb;
-use keyberon::layout::{CustomEvent, Event, Layout};
+use keyberon::layout::Layout;
 use keyberon::matrix::{Matrix, PressedKeys};
-use nb::block;
 use rtic::app;
 use stm32f0xx_hal as hal;
 use usb_device::bus::UsbBusAllocator;
 use usb_device::class::UsbClass as _;
-use usb_device::device::UsbDeviceState;
 
 extern crate smart_leds;
 extern crate ws2812_spi;
@@ -24,10 +19,8 @@ use smart_leds::{brightness, colors, SmartLedsWrite, RGB8};
 
 use ws2812_spi as ws2812;
 
-use embedded_hal::digital::v2::{InputPin, OutputPin};
-
 use hal::delay::Delay;
-use hal::gpio::{gpioa, gpiob, Alternate, Input, Output, Pin, PullUp, PushPull, AF0};
+use hal::gpio::{gpioa, Alternate, Input, Output, Pin, PullUp, PushPull, AF0};
 use hal::prelude::*;
 
 use embedded_hal::spi::FullDuplex;
@@ -43,7 +36,6 @@ use keyberon::debounce::Debouncer;
 use keyberon::key_code::KbHidReport;
 use keyberon::key_code::KeyCode;
 
-use usb_device::class::UsbClass as _;
 type Spi = hal::spi::Spi<
     stm32::SPI1,
     gpioa::PA5<Alternate<AF0>>,
@@ -126,7 +118,9 @@ where
         } else {
             self.leds[0] = colors::BLACK;
         }
-        self.ws.write(brightness(self.leds.iter().cloned(), 10));
+        if self.ws.write(brightness(self.leds.iter().cloned(), 10)).is_err() {
+            panic!();
+        }
     }
 
     fn num_lock(&mut self, status: bool) {
@@ -135,7 +129,9 @@ where
         } else {
             self.leds[1] = colors::BLACK;
         }
-        self.ws.write(brightness(self.leds.iter().cloned(), 10));
+        if self.ws.write(brightness(self.leds.iter().cloned(), 10)).is_err() {
+            panic!();
+        }
     }
 
     fn compose(&mut self, status: bool) {
@@ -144,7 +140,10 @@ where
         } else {
             self.leds[3] = colors::BLACK;
         }
-        self.ws.write(brightness(self.leds.iter().cloned(), 10));
+        if self.ws.write(brightness(self.leds.iter().cloned(), 10)).is_err() {
+            panic!();
+        }
+
     }
 }
 
@@ -212,12 +211,10 @@ impl Backlight {
                     } else {
                         10
                     }
+                } else if tstep + 10 < 1000 {
+                    tstep + 10
                 } else {
-                    if tstep + 10 < 1000 {
-                        tstep + 10
-                    } else {
-                        1000
-                    }
+                    1000
                 };
                 BacklightMode::Breath(c, tstep, step, dir)
             }
@@ -228,12 +225,10 @@ impl Backlight {
                     } else {
                         10
                     }
+                } else if tstep + 10 < 1000 {
+                    tstep + 10
                 } else {
-                    if tstep + 10 < 1000 {
-                        tstep + 10
-                    } else {
-                        1000
-                    }
+                    1000
                 };
                 BacklightMode::Circling(c, tstep, step, i, dir)
             }
@@ -331,8 +326,10 @@ impl Backlight {
             }
         };
 
-        leds.ws
-            .write(brightness(leds.leds.iter().cloned(), self.brightness));
+        if leds.ws
+            .write(brightness(leds.leds.iter().cloned(), self.brightness)).is_err() {
+                panic!();
+            }
     }
 }
 
@@ -500,8 +497,10 @@ const APP: () = {
                 *bl_val = if *bl_val == 100 { 100 } else { *bl_val + 1 };
                 usb_class.lock(|k| {
                     let leds = k.device_mut().leds_mut();
-                    leds.ws
-                        .write(brightness(leds.leds.iter().cloned(), *bl_val));
+                    if leds.ws
+                        .write(brightness(leds.leds.iter().cloned(), *bl_val)).is_err() {
+                            panic!();
+                        }
                 });
             }
             keyberon::layout::CustomEvent::Release(CustomActions::LightDown) => {
@@ -509,8 +508,10 @@ const APP: () = {
                 *bl_val = if *bl_val == 0 { 0 } else { *bl_val - 1 };
                 usb_class.lock(|k| {
                     let leds = k.device_mut().leds_mut();
-                    leds.ws
-                        .write(brightness(leds.leds.iter().cloned(), *bl_val));
+                    if leds.ws
+                        .write(brightness(leds.leds.iter().cloned(), *bl_val)).is_err() {
+                            panic!();
+                        }
                 });
             }
             keyberon::layout::CustomEvent::Release(CustomActions::ColorCycle) => {
@@ -529,7 +530,7 @@ const APP: () = {
         }
 
         usb_class.lock(|k| {
-            backlight.refresh_leds(&mut k.device_mut().leds_mut());
+            backlight.refresh_leds(k.device_mut().leds_mut());
         });
 
         c.resources.layout.tick();
