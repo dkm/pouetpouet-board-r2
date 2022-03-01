@@ -1,0 +1,21 @@
+[default.probe]
+protocol = "Swd"
+
+[default.flashing]
+enabled = true
+
+[default.reset]
+enabled = true
+# Whether or not the target should be halted after reset.
+halt_afterwards = false
+
+[default.general]
+chip = "STM32L072CBTX"
+log_level = "WARN"
+
+[default.rtt]
+enabled = false
+
+[default.gdb]
+enabled = true
+gdb_connection_string = "127.0.0.1:1337"
