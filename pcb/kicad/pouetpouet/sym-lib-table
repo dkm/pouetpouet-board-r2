@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name "pouetpouet-rescue")(type "Legacy")(uri "${KIPRJMOD}/pouetpouet-rescue.lib")(options "")(descr ""))
+)

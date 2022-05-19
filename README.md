@@ -109,6 +109,14 @@ You can also see how the LEDs are currently used. It's mostly useless/for fun. T
 | [Gateron Switch 5-pin](https://fr.aliexpress.com/item/32797603005.html?spm=a2g0s.9042311.0.0.72906c37zAMdzk) |       | 60| by 65                                   | 15.24€ |
 | [Blank DSA Keycaps](https://fr.aliexpress.com/item/32850729893.html?spm=a2g0s.9042311.0.0.3c4b6c37vkQ3vr)    |       | 60| by 200                                   | 15.6€  |
 | [STM32F072CBT6](https://fr.aliexpress.com/item/4000419148272.html?spm=a2g0s.9042311.0.0.43286c37wfyZHW)      | LQFP48 | 1 |                                         | 2.87€ | 
+|--------------------------------------------------------------------------|-------|--:|------------------------------------------|------|
+|[TPS2553DBVR-1](https://www.digikey.fr/fr/products/detail/texas-instruments/TPS2553DBVR-1/5143873) | PKG? | 1 | FIND | ??€|
+|[SK6812-Mini]() | PGK? | 60+4 | FIND | ??€ |
+| 100nF                                                                    | 0805  | 2 |  aisler*                                 | 0€ |
+| 9.1 kOhm                                                                 | 0805  | 4 |  aisler*                                 | 0€ |
+| 68 kOhm                                                                  | 0805  | 6 |  aisler*                                 | 0€ |
+|[2N7002](https://www.digikey.fr/fr/products/detail/stmicroelectronics/2N7002/654418) | SOT23-3 | 2 | FIND | ?€ |
+| 100uF  | 6032 | 1 | FIND | ??€ |
 
 The total for 3 keyboard is 71.25€. Beware that some parts can't be ordered for
 the exact amount and you need to buy more (in particular, aisler won't do

@@ -7,3 +7,12 @@
 [submodule "pcb/kicad/jmdaly_keyboard_parts.pretty"]
 	path = pcb/kicad/jmdaly_keyboard_parts.pretty
 	url = https://gitlab.com/jmdaly/jmdaly_keyboard_parts.pretty.git
+[submodule "foostan-kbd"]
+	path = pcb/kicad/kbd
+	url = https://github.com/foostan/kbd.git
+[submodule "pcb/kicad/djinn"]
+	path = pcb/kicad/djinn
+	url = https://github.com/tzarc/djinn.git
+[submodule "pcb/kicad/reversible-kicad"]
+	path = pcb/kicad/reversible-kicad
+	url = https://github.com/tzarc/reversible-kicad.git
