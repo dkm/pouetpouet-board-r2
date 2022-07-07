@@ -1,0 +1,32 @@
+with "config/pouetpouet_config.gpr";
+with "stm32f0x2_hal.gpr";
+
+project Pouetpouet is
+
+   for Target use STM32F0X2_HAL'Target;
+   for Runtime ("Ada") use STM32F0X2_HAL'Runtime ("Ada");
+
+   for Source_Dirs use ("src/", "config/");
+   for Object_Dir use "obj/" & Pouetpouet_Config.Build_Profile;
+   for Create_Missing_Dirs use "True";
+   for Exec_Dir use "bin";
+   for Main use ("pouetpouet.adb");
+
+   package Compiler is
+      for Default_Switches ("Ada") use Pouetpouet_Config.Ada_Compiler_Switches & ("-gnatX");
+   end Compiler;
+
+   package Binder is
+      for Switches ("Ada") use ("-Es"); --  Symbolic traceback
+   end Binder;
+
+   package Linker is
+      for Default_Switches ("Ada") use
+         STM32F0X2_HAL.Linker_Switches;
+   end Linker;
+
+   package Install is
+      for Artifacts (".") use ("share");
+   end Install;
+
+end Pouetpouet;

@@ -1,0 +1,34 @@
+name = "pouetpouet"
+description = "PouetPouet firmware"
+version = "0.1.0-dev"
+
+authors = ["Marc Poulhiès"]
+maintainers = ["Marc Poulhiès <dkm@kataplop.net>"]
+maintainers-logins = ["dkm"]
+
+executables = ["pouetpouet"]
+
+
+# [[pins]]  # Added by alr
+# usb_embedded = { url='https://github.com/Fabien-Chouteau/usb_embedded' }
+
+##/mnt/barryallen/dkm/git/ada-embedded/usb_embedded' }
+[[depends-on]]
+click = "~0.1.0-dev"
+[[pins]]
+click = { url='https://github.com/dkm/click' }
+
+[configuration.values]
+atomic.backend = "armv6m"
+cortex_m.core = "m0"
+
+[[depends-on]]
+usb_embedded = "~0.3.0-dev"
+[[pins]]
+usb_embedded = { url='https://github.com/Fabien-Chouteau/usb_embedded' }
+[[depends-on]]
+gnat_arm_elf = "^11.2"
+[[depends-on]]
+stm32f0x2_hal = "~0.0.0"
+[[pins]]
+stm32f0x2_hal = { url='https://github.com/dkm/stm32f0x2_hal-ada' }
