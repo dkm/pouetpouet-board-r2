@@ -394,19 +394,19 @@ mod app {
         let mut timer = timers::Timer::tim3(c.device.TIM3, 1.khz(), &mut rcc);
         timer.listen(timers::Event::TimeOut);
 
-        let pa15 = gpioa.pa15;
-        let pa1 = gpioa.pa1;
         let pa0 = gpioa.pa0;
+        let pa10 = gpioa.pa10;
+        let pa15 = gpioa.pa15;
 
         let matrix = cortex_m::interrupt::free(move |cs| {
             Matrix::new(
                 [
                     pa0.into_pull_up_input(cs).downgrade(),
-                    pa1.into_pull_up_input(cs).downgrade(),
-                    gpiob.pb13.into_pull_up_input(cs).downgrade(),
                     gpiob.pb12.into_pull_up_input(cs).downgrade(),
+                    gpiob.pb13.into_pull_up_input(cs).downgrade(),
                     gpiob.pb14.into_pull_up_input(cs).downgrade(),
                     gpiob.pb15.into_pull_up_input(cs).downgrade(),
+                    pa10.into_pull_up_input(cs).downgrade(),
                     pa15.into_pull_up_input(cs).downgrade(),
                     gpiob.pb3.into_pull_up_input(cs).downgrade(),
                     gpiob.pb4.into_pull_up_input(cs).downgrade(),
