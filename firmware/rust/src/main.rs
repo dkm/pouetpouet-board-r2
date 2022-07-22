@@ -5,17 +5,18 @@
 use panic_halt as _;
 
 use core::convert::Infallible;
-use keyberon::action::{k, l, m, Action::*, HoldTapConfig};
+use keyberon::action::{k, l, Action::*, HoldTapConfig};
 use keyberon::key_code::KeyCode::*;
-
+use keyberon::layout::{Event, Layout};
 type Action = keyberon::action::Action<CustomActions>;
 
-use keyberon::layout::Layout;
+
 use keyberon::matrix::Matrix;
 use rtic::app;
 use stm32f0xx_hal as hal;
 use usb_device::bus::UsbBusAllocator;
 use usb_device::class::UsbClass as _;
+use usb_device::device::UsbDeviceState;
 
 extern crate smart_leds;
 extern crate ws2812_spi;
@@ -37,7 +38,6 @@ use hal::{
 
 use keyberon::debounce::Debouncer;
 use keyberon::key_code::KbHidReport;
-use keyberon::key_code::KeyCode;
 
 type Spi = hal::spi::Spi<
     stm32::SPI1,
@@ -367,22 +367,33 @@ impl Backlight {
     }
 }
 
-#[app(device = crate::hal::pac, peripherals = true)]
-const APP: () = {
-    struct Resources {
+
+#[app(device = crate::hal::pac, peripherals = true, dispatchers = [CEC_CAN])]
+mod app {
+    use super::*;
+
+    #[shared]
+    struct Shared {
         usb_dev: UsbDevice,
         usb_class: UsbClass,
-        matrix: Matrix<Pin<Input<PullUp>>, Pin<Output<PushPull>>, 12, 5>,
-        debouncer: Debouncer<[[bool; 12]; 5]>,
-        layout: Layout<12, 5, 2, CustomActions>,
-        timer: timers::Timer<stm32::TIM3>,
 
+        #[lock_free]
+        layout: Layout<12, 5, 2, CustomActions>,
+
+        #[lock_free]
         backlight: Backlight,
     }
 
-    #[init]
-    fn init(mut c: init::Context) -> init::LateResources {
-        static mut USB_BUS: Option<UsbBusAllocator<usb::UsbBusType>> = None;
+    #[local]
+    struct Local {
+        matrix: Matrix<Pin<Input<PullUp>>, Pin<Output<PushPull>>, 12, 5>,
+        debouncer: Debouncer<[[bool; 12]; 5]>,
+        timer: timers::Timer<stm32::TIM3>,
+    }
+
+    #[init(local = [bus: Option<UsbBusAllocator<usb::UsbBusType>> = None])]
+    fn init(mut c: init::Context) -> (Shared, Local, init::Monotonics) {
+
         let mut rcc = c
             .device
             .RCC
@@ -401,8 +412,9 @@ const APP: () = {
             pin_dm: gpioa.pa11,
             pin_dp: gpioa.pa12,
         };
-        *USB_BUS = Some(usb::UsbBusType::new(usb));
-        let usb_bus = USB_BUS.as_ref().unwrap();
+
+        *c.local.bus = Some(usb::UsbBusType::new(usb));
+        let usb_bus = c.local.bus.as_ref().unwrap();
 
         // Handling of ws2812 leds
 
@@ -485,51 +497,51 @@ const APP: () = {
                 ],
             )});
 
-        init::LateResources {
-            usb_dev,
-            usb_class,
-            timer,
-            debouncer: Debouncer::new([[false; 12]; 5], [[false; 12]; 5], 5),
-            matrix: matrix.get(),
-            layout: Layout::new(&LAYERS),
-
-            backlight: Backlight {
-                mode: BacklightMode::Off,
-                brightness: 8,
+        (
+            Shared {
+                usb_dev,
+                usb_class,
+                layout: Layout::new(&LAYERS),
+                backlight: Backlight {
+                    mode: BacklightMode::Off,
+                    brightness: 8,
+                },
             },
-        }
+
+            Local {
+                timer,
+                debouncer: Debouncer::new([[false; 12]; 5], [[false; 12]; 5], 5),
+                matrix: matrix.get(),
+            },
+            init::Monotonics(),
+        )
     }
 
-    #[task(binds = USB, priority = 4, resources = [usb_dev, usb_class])]
+    #[task(binds = USB, priority = 3, shared = [usb_dev, usb_class])]
     fn usb_rx(c: usb_rx::Context) {
-        if c.resources.usb_dev.poll(&mut [c.resources.usb_class]) {
-            c.resources.usb_class.poll();
-        }
+        (c.shared.usb_dev, c.shared.usb_class).lock(|usb_dev, usb_class| {
+            if usb_dev.poll(&mut [usb_class]) {
+                usb_class.poll();
+            }
+        });
     }
 
-    #[task(
-        binds = TIM3,
-        priority = 2,
-        resources = [matrix, debouncer, timer, layout, usb_class, backlight],
-    )]
-    fn tick(c: tick::Context) {
-        c.resources.timer.wait().ok();
-
-        for event in c
-            .resources
-            .debouncer
-            .events(c.resources.matrix.get().unwrap())
-        {
-            c.resources.layout.event(event);
+    #[task(priority = 2, shared = [usb_dev, usb_class, layout, backlight])]
+    fn tick_keyberon(mut c: tick_keyberon::Context) {
+        let tick = c.shared.layout.tick();
+        if c.shared.usb_dev.lock(|d| d.state()) != UsbDeviceState::Configured {
+            return;
         }
-        let mut usb_class = c.resources.usb_class;
-        let backlight = c.resources.backlight;
+        // match tick {
+        //     CustomEvent::Release(()) => unsafe { cortex_m::asm::bootload(0x1FFFC800 as _) },
+        //     _ => (),
+        // }
 
-        match c.resources.layout.tick() {
+        match tick {
             keyberon::layout::CustomEvent::Release(CustomActions::LightUp) => {
-                let bl_val = &mut backlight.brightness;
+                let bl_val = &mut c.shared.backlight.brightness;
                 *bl_val = if *bl_val == 100 { 100 } else { *bl_val + 1 };
-                usb_class.lock(|k| {
+                c.shared.usb_class.lock(|k| {
                     let leds = k.device_mut().leds_mut();
                     if leds.ws
                         .write(brightness(leds.leds.iter().cloned(), *bl_val)).is_err() {
@@ -538,9 +550,9 @@ const APP: () = {
                 });
             }
             keyberon::layout::CustomEvent::Release(CustomActions::LightDown) => {
-                let bl_val = &mut backlight.brightness;
+                let bl_val = &mut c.shared.backlight.brightness;
                 *bl_val = if *bl_val == 0 { 0 } else { *bl_val - 1 };
-                usb_class.lock(|k| {
+                c.shared.usb_class.lock(|k| {
                     let leds = k.device_mut().leds_mut();
                     if leds.ws
                         .write(brightness(leds.leds.iter().cloned(), *bl_val)).is_err() {
@@ -549,37 +561,52 @@ const APP: () = {
                 });
             }
             keyberon::layout::CustomEvent::Release(CustomActions::ColorCycle) => {
-                backlight.next_color();
+                c.shared.backlight.next_color();
             }
             keyberon::layout::CustomEvent::Release(CustomActions::ModeCycle) => {
-                backlight.next_mode();
+                c.shared.backlight.next_mode();
             }
             keyberon::layout::CustomEvent::Release(CustomActions::FreqUp) => {
-                backlight.change_freq(true);
+                c.shared.backlight.change_freq(true);
             }
             keyberon::layout::CustomEvent::Release(CustomActions::FreqDown) => {
-                backlight.change_freq(false);
+                c.shared.backlight.change_freq(false);
             }
             _ => (),
         }
 
-        usb_class.lock(|k| {
-            backlight.refresh_leds(k.device_mut().leds_mut());
-        });
 
-        c.resources.layout.tick();
-        send_report(c.resources.layout.keycodes(), &mut usb_class);
+        let report: KbHidReport = c.shared.layout.keycodes().collect();
+        if !c
+            .shared
+            .usb_class
+            .lock(|k| k.device_mut().set_keyboard_report(report.clone()))
+        {
+            return;
+        }
+        while let Ok(0) = c.shared.usb_class.lock(|k| k.write(report.as_bytes())) {}
     }
 
-    extern "C" {
-        fn CEC_CAN();
+    #[task(priority = 2, capacity = 8, shared = [layout])]
+    fn handle_event(c: handle_event::Context, event: Event) {
+        c.shared.layout.event(event)
     }
-};
 
-fn send_report(iter: impl Iterator<Item = KeyCode>, usb_class: &mut resources::usb_class<'_>) {
-    use rtic::Mutex;
-    let report: KbHidReport = iter.collect();
-    if usb_class.lock(|k| k.device_mut().set_keyboard_report(report.clone())) {
-        while let Ok(0) = usb_class.lock(|k| k.write(report.as_bytes())) {}
+    #[task(
+        binds = TIM3,
+        priority = 1,
+        local = [matrix, debouncer, timer],
+    )]
+    fn tick(c: tick::Context) {
+        c.local.timer.wait().ok();
+
+        for event in c
+            .local
+            .debouncer
+            .events(c.local.matrix.get().get())
+        {
+            handle_event::spawn(event).unwrap();
+        }
+        tick_keyberon::spawn().unwrap();
     }
 }
