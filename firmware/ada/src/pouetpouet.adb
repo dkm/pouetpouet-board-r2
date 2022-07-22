@@ -31,16 +31,26 @@ procedure Pouetpouet is
      := [PA0, PA1, PB13, PB12, PB14, PB15, PA15, PB3, PB4, PB5, PB8, PB9];
 
    package TestClick is new Click (5 ,ColR, RowR, GPIO_Point,
-                                   Ct, Rt, Cols, Rows);
+                                   Ct, Rt, Cols, Rows, 2);
    use TestClick;
 
-   BepoLayout : constant Layout :=
+   Bepo_Layout : constant Layout :=
      [
-      [Kb1,   Kb2, Kb3,  Kb4,    Kb5,  Grave,  Kb6,  Kb7,      Kb8,   Kb9,    Kb0,    Minus],
-      [Q,     W,   E,    R,      T,    Tab,    Y,    U,        I,     O,      P,      LBracket],
-      [A,     S,   D,    F,      G,    BSpace, H,    J,        K,     L,      SColon, Quote],
-      [Z,     X,   C,    V,      B,    Enter,  N,    M,        Comma, Dot,    Slash,  Bslash  ],
-      [LCtrl, X,        LGui, LShift, LAlt, Space,  RAlt, RBracket, Equal, Delete, RShift, RCtrl]
+      [
+       [Kw (Kb1),   Kw (Kb2), Kw (Kb3),  Kw (Kb4),    Kw (Kb5),  Kw (Grave),  Kw (Kb6),  Kw (Kb7),      Kw (Kb8),   Kw (Kb9),    Kw (Kb0),    Kw (Minus)],
+       [Kw (Q),     Kw (W),   Kw (E),    Kw (R),      Kw (T),    Kw (Tab),    Kw (Y),    Kw (U),        Kw (I),     Kw (O),      Kw (P),      Kw (Lbracket)],
+       [Kw (A),     Kw (S),   Kw (D),    Kw (F),      Kw (G),    Kw (Bspace), Kw (H),    Kw (J),        Kw (K),     Kw (L),      Kw (Scolon), Kw (Quote)],
+       [Kw (Z),     Kw (X),   Kw (C),    Kw (V),      Kw (B),    Kw (Enter),  Kw (N),    Kw (M),        Kw (Comma), Kw (Dot),    Kw (Slash),  Kw (Bslash)  ],
+       [Kw (Lctrl), Lw (1),   Kw (Lgui), Kw (Lshift), Kw (Lalt), Kw (Space),  Kw (Ralt), Kw (Rbracket), Kw (Equal), Kw (Delete), Kw (Rshift), Kw (Rctrl)]
+      ],
+
+      [
+        [Kw (F1),          Kw (F2),      Kw (F3), Kw (F4),  Kw (F5), Kw (F6),     Kw (F7),     Kw (F8),   Kw (F9),     Kw (F10),   Kw (F11),     Kw (F12)],
+        [Kw (Sysreq),      Kw (Numlock), Kw (T),  Kw (T),   Kw (T),  Kw (Escape), Kw (Insert), Kw (Pgup), Kw (Pgdown), Kw (Volup), Kw (Voldown), Kw (Mute)],
+        [Kw (T),           Kw (T),       Kw (T),  Kw (T),   Kw (T),  Kw (T),      Kw (Home),   Kw (Up),   Kw (Endd),   Kw (T),     Kw (T),       Kw (T)],
+        [Kw (Nonusbslash), Kw (T),       Kw (T),  Kw (T),   Kw (T),  Kw (T),      Kw (Left),   Kw (Down), Kw (Right),  Kw (T),     Kw (T),       Kw (Pgup)],
+        [Kw (T),           Kw (T),       Kw (T),  Kw (T),   Kw (T),  Kw (T),      Kw (T),      Kw (T),    Kw (T),      Kw (T),     Kw (T),       Kw (Pgdown)]
+      ]
      ];
 
    Max_Packet_Size   : constant := 64;
@@ -104,20 +114,25 @@ begin
       declare
          Evts : constant Events := Get_Events (Get_Matrix);
       begin
-         for Evt of Evts loop
-            Log ("(" & Evt.Evt'Image & ", " & Evt.Col'Image & ", "
-                   & Evt.Row'Image & ") = "
-                   & KeyCode'Enum_Rep (BepoLayout (Evt.Row, Evt.Col))'Image);
+         --  FIXME: dot notation possible in GCC12
+         Register_Events (Bepo_Layout, Evts);
+         Tick (Bepo_Layout);
+
+         for KC of Key_Codes (Bepo_Layout) loop
+            --  Log ("(" & Evt.Evt'Image & ", " & Evt.Col'Image & ", "
+            --         & Evt.Row'Image & ") = "
+            --         & Key_Code_T'Enum_Rep (Bepo_Layout (Evt.Row, Evt.Col).C)'Image);
 
             if HID_Class.Ready then
-               if Evt.Evt = Press then
-                  HID_Class.Push_Key_Code
-                    (KeyCode'Enum_Rep (BepoLayout (Evt.Row, Evt.Col)));
-               end if;
+               --  if Evt.Evt = Press then
+               --  HID_Class.Push_Key_Code
+               --    (Key_Code_T'Enum_Rep (Bepo_Layout (Evt.Row, Evt.Col).C));
+               HID_Class.Push_Key_Code (Key_Code_T'Enum_Rep (KC));
 
-               HID_Class.Send_Report (UDC);
+               --  end if;
             end if;
          end loop;
+         HID_Class.Send_Report (UDC);
       end;
       --      Delay_Cycles (72);
    end loop;
