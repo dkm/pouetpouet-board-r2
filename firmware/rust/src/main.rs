@@ -7,7 +7,7 @@ use panic_halt as _;
 use core::convert::Infallible;
 
 use keyberon::layout::Layout;
-use keyberon::matrix::{Matrix, PressedKeys};
+use keyberon::matrix::Matrix;
 use rtic::app;
 use stm32f0xx_hal as hal;
 use usb_device::bus::UsbBusAllocator;
@@ -71,10 +71,17 @@ pub enum CustomActions {
     FreqDown,
 }
 
+pub static LU : CustomActions = CustomActions::LightUp;
+pub static LD : CustomActions = CustomActions::LightDown;
+pub static MC : CustomActions = CustomActions::ModeCycle;
+pub static CC : CustomActions = CustomActions::ColorCycle;
+pub static FU : CustomActions = CustomActions::FreqUp;
+pub static FD : CustomActions = CustomActions::FreqDown;
+
 #[cfg(not(feature = "testmode"))]
 #[rustfmt::skip]
 
-pub static LAYERS: keyberon::layout::Layers<CustomActions> = keyberon::layout::layout! {
+pub static LAYERS: keyberon::layout::Layers<12, 5, 2, CustomActions> = keyberon::layout::layout! {
     {
         [Kb1   Kb2 Kb3  Kb4    Kb5  Grave  Kb6  Kb7      Kb8   Kb9    Kb0    Minus]
         [Q     W   E    R      T    Tab    Y    U        I     O      P      LBracket]
@@ -86,8 +93,8 @@ pub static LAYERS: keyberon::layout::Layers<CustomActions> = keyberon::layout::l
         [F1          F2      F3 F4  F5 F6     F7     F8   F9     F10   F11     F12]
         [SysReq      NumLock t  t   t  Escape Insert PgUp PgDown VolUp VolDown Mute ]
         [t           t       t  t   t  t      Home   Up   End    t     t       t ]
-        [NonUsBslash {Action::Custom(CustomActions::ColorCycle)} {Action::Custom(CustomActions::FreqUp)} {Action::Custom(CustomActions::FreqDown)} t t Left Down Right t t PgUp ]
-        [{Action::Custom(CustomActions::LightUp)} t {Action::Custom(CustomActions::LightDown)} {Action::Custom(CustomActions::ModeCycle)} t t t t t t t PgDown]
+        [NonUsBslash {Action::Custom(CC)} {Action::Custom(FU)} {Action::Custom(FD)} t t Left Down Right t t PgUp ]
+        [{Action::Custom(LU)} t {Action::Custom(LD)} {Action::Custom(MC)} t t t t t t t PgDown]
     }
 };
 
@@ -339,8 +346,8 @@ const APP: () = {
         usb_dev: UsbDevice,
         usb_class: UsbClass,
         matrix: Matrix<Pin<Input<PullUp>>, Pin<Output<PushPull>>, 12, 5>,
-        debouncer: Debouncer<PressedKeys<12, 5>>,
-        layout: Layout<CustomActions>,
+        debouncer: Debouncer<[[bool; 12]; 5]>,
+        layout: Layout<12, 5, 2, CustomActions>,
         timer: timers::Timer<stm32::TIM3>,
 
         backlight: Backlight,
@@ -455,9 +462,9 @@ const APP: () = {
             usb_dev,
             usb_class,
             timer,
-            debouncer: Debouncer::new(PressedKeys::default(), PressedKeys::default(), 5),
+            debouncer: Debouncer::new([[false; 12]; 5], [[false; 12]; 5], 5),
             matrix: matrix.get(),
-            layout: Layout::new(LAYERS),
+            layout: Layout::new(&LAYERS),
 
             backlight: Backlight {
                 mode: BacklightMode::Off,
