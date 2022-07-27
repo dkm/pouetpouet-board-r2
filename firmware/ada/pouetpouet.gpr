@@ -13,7 +13,7 @@ project Pouetpouet is
    for Main use ("pouetpouet.adb");
 
    package Compiler is
-      for Default_Switches ("Ada") use Pouetpouet_Config.Ada_Compiler_Switches & ("-gnatX");
+      for Default_Switches ("Ada") use Pouetpouet_Config.Ada_Compiler_Switches & ("-gnatX", "-gnat2022", "-g3");
    end Compiler;
 
    package Binder is

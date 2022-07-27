@@ -4,9 +4,6 @@ with STM32.GPIO;    use STM32.GPIO;
 --  Not yet used.
 --  with STM32.Timers;    use STM32.Timers;
 
---  with USB.HAL.Device;
---  with USB.Device.Serial;
-
 with USB; use USB;
 with USB.Device.HID.Keyboard;
 with USB.Device; use USB.Device;
@@ -31,7 +28,7 @@ procedure Pouetpouet is
      := [PA0, PA1, PB13, PB12, PB14, PB15, PA15, PB3, PB4, PB5, PB8, PB9];
 
    package TestClick is new Click (5 ,ColR, RowR, GPIO_Point,
-                                   Ct, Rt, Cols, Rows, 2);
+                                   Ct, Rt, Cols, Rows, 2, Logging.Log);
    use TestClick;
 
    Bepo_Layout : constant Layout :=
@@ -60,8 +57,18 @@ procedure Pouetpouet is
    use type USB.Device.Init_Result;
    USB_Status  : USB.Device.Init_Result;
 
+   procedure Dump_Events (Es : Events) is
+   begin
+      for E of Es loop
+         Log (" - "
+           & (if E.Evt = Press then "P " else "R ")
+           & E.Row'Image & ":" & E.Col'Image);
+       end loop;
+   end Dump_Events;
+
 begin
-   Init;
+
+   Testclick.Init;
 
    if not USB_Stack.Register_Class (HID_Class'Unchecked_Access) then
       raise Fatal_Error with "Failed to register USB Serial device class";
@@ -88,7 +95,7 @@ begin
    --  Enable_Interrupt (Timer_1, Timer_Update_Interrupt);
 
    --  Enable (Timer_1);
-   Log ("STARTING");
+   Log ("STARTING FW");
 
    for Row of Keys.Rows loop
       Enable_Clock (Row);
@@ -112,26 +119,28 @@ begin
       USB_Stack.Poll;
 
       declare
-         Evts : constant Events := Get_Events (Get_Matrix);
+         Evts : constant Events := Get_Events;
       begin
          --  FIXME: dot notation possible in GCC12
-         Register_Events (Bepo_Layout, Evts);
+         if Evts'Length > 0 then
+           Dump_Events(Evts);
+           Register_Events (Bepo_Layout, Evts);
+         end if;
+
          Tick (Bepo_Layout);
 
-         for KC of Key_Codes (Bepo_Layout) loop
-            --  Log ("(" & Evt.Evt'Image & ", " & Evt.Col'Image & ", "
-            --         & Evt.Row'Image & ") = "
-            --         & Key_Code_T'Enum_Rep (Bepo_Layout (Evt.Row, Evt.Col).C)'Image);
+         for KC of Get_Key_Codes loop
+            Log ("Got 1 keycode to push : " & Key_Code_T'Enum_Rep (KC)'Image);
 
             if HID_Class.Ready then
-               --  if Evt.Evt = Press then
-               --  HID_Class.Push_Key_Code
-               --    (Key_Code_T'Enum_Rep (Bepo_Layout (Evt.Row, Evt.Col).C));
                HID_Class.Push_Key_Code (Key_Code_T'Enum_Rep (KC));
-
-               --  end if;
             end if;
          end loop;
+
+         for M of Get_Modifiers loop
+              HID_Class.Set_Modifier (M, True);
+         end loop;
+
          HID_Class.Send_Report (UDC);
       end;
       --      Delay_Cycles (72);

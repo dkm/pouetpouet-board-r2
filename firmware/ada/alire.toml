@@ -8,27 +8,21 @@ maintainers-logins = ["dkm"]
 
 executables = ["pouetpouet"]
 
-
-# [[pins]]  # Added by alr
-# usb_embedded = { url='https://github.com/Fabien-Chouteau/usb_embedded' }
-
-##/mnt/barryallen/dkm/git/ada-embedded/usb_embedded' }
-[[depends-on]]
-click = "~0.1.0-dev"
-[[pins]]
-click = { url='https://github.com/dkm/click' }
-
 [configuration.values]
 atomic.backend = "armv6m"
 cortex_m.core = "m0"
 
 [[depends-on]]
+click = "~0.1.0-dev"
 usb_embedded = "~0.3.0-dev"
-[[pins]]
-usb_embedded = { url='https://github.com/Fabien-Chouteau/usb_embedded' }
-[[depends-on]]
-gnat_arm_elf = "^11.2"
-[[depends-on]]
+gnat_arm_elf = "^12"
 stm32f0x2_hal = "~0.0.0"
+
+# [build-profiles]
+# stm32f0x2_hal  = "development"
+# click = "development"
+
 [[pins]]
-stm32f0x2_hal = { url='https://github.com/dkm/stm32f0x2_hal-ada' }
+click = { url='https://github.com/dkm/click' }
+usb_embedded = { url='https://github.com/dkm/usb_embedded' }
+stm32f0x2_hal = { url='https://github.com/dkm/stm32f0x2_hal-ada.git' }
