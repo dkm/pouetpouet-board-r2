@@ -58,7 +58,7 @@ pub static LAYERS: keyberon::layout::Layers<12, 5, 2, CustomActions> = keyberon:
     }
     {
         [F1          F2      F3 F4  F5 F6     F7     F8   F9     F10   F11     F12]
-        [SysReq      NumLock t  t   t  Escape Insert PgUp PgDown VolUp VolDown Mute ]
+        [SysReq      NumLock CapsLock  t   t  Escape Insert PgUp PgDown VolUp VolDown Mute ]
         [t           t       t  t   t  t      Home   Up   End    t     t       t ]
         [NonUsBslash {Action::Custom(CC)} {Action::Custom(FU)} {Action::Custom(FD)} t t Left Down Right t t PgUp ]
         [{Action::Custom(LU)} t {Action::Custom(LD)} {Action::Custom(MC)} t t t t t t t PgDown]
