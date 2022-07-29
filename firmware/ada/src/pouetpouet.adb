@@ -1,8 +1,14 @@
 with STM32.Device; use STM32.Device;
 with STM32.GPIO;    use STM32.GPIO;
+with STM32.RCC; use STM32.RCC;
+
+--  Temporary
+-- with STM32_SVD.RCC; use STM32_SVD.RCC;
+with STM32_SVD.TIM; use STM32_SVD.TIM;
+with HAL; use HAL;
 
 --  Not yet used.
---  with STM32.Timers;    use STM32.Timers;
+-- with STM32.Timers;    use STM32.Timers;
 
 with USB; use USB;
 with USB.Device.HID.Keyboard;
@@ -66,9 +72,18 @@ procedure Pouetpouet is
        end loop;
    end Dump_Events;
 
+   Rcc_Config : Rcc_Cfgr;
 begin
-
    Testclick.Init;
+
+   --  Clock config
+   --  Currently only supports doing nothing (HSI) or using
+   --  HSI48
+   Set_Sys_Clock_Source (Rcc_Config, Hsi48);
+   Enable_Crs (Rcc_Config);
+   Set_Sys_Clock (Rcc_Config, 48_000_000);
+   --  Set_P_Clock (Rcc_Config, 24_000_000);
+   Freeze (Rcc_Config);
 
    if not USB_Stack.Register_Class (HID_Class'Unchecked_Access) then
       raise Fatal_Error with "Failed to register USB Serial device class";
@@ -87,14 +102,18 @@ begin
 
    USB_Stack.Start;
 
-   --  Enable_Clock (Timer_1);
-   --  Reset (Timer_1);
+   --  Using HAL to enable clock, but everything else is yet to be done.
+   --  Using raw access to configure the timer until it's correctly
+   --  implemented.
+   Enable_Clock (Timer_1);
 
-   --  Configure (Timer_1, Prescaler => 13999, Period => 5999);
+   --  1ms period
+   TIM1_Periph.ARR.ARR := 1;
+   TIM1_Periph.PSC.PSC := 48_000;
+   TIM1_Periph.CR1.OPM := True;
+   TIM1_Periph.CR1.UDIS := False;
+   TIM1_Periph.CR1.DIR := True;
 
-   --  Enable_Interrupt (Timer_1, Timer_Update_Interrupt);
-
-   --  Enable (Timer_1);
    Log ("STARTING FW");
 
    for Row of Keys.Rows loop
@@ -117,6 +136,9 @@ begin
 
    loop
       USB_Stack.Poll;
+
+      TIM1_Periph.EGR.UG := True;
+      TIM1_Periph.CR1.CEN := True;
 
       declare
          Evts : constant Events := Get_Events;
@@ -143,6 +165,10 @@ begin
 
          HID_Class.Send_Report (UDC);
       end;
-      --      Delay_Cycles (72);
+
+      --  Not clear why the timers stops at 1 instead of 0
+      while Tim1_Periph.CNT.CNT > 1 loop
+        null;
+      end loop;
    end loop;
 end Pouetpouet;
