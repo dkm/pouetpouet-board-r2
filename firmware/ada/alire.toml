@@ -18,9 +18,10 @@ usb_embedded = "~0.3.0-dev"
 gnat_arm_elf = "^12"
 stm32f0x2_hal = "~0.0.0"
 
-# [build-profiles]
-# stm32f0x2_hal  = "development"
-# click = "development"
+[build-profiles]
+## Do not build stm32f0x2_hal in release mode, doesn't work (woopsy)
+stm32f0x2_hal  = "development"
+##click = "development"
 
 [[pins]]
 click = { url='https://github.com/dkm/click' }
