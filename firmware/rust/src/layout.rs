@@ -52,7 +52,7 @@ pub static LAYERS: keyberon::layout::Layers<12, 5, 2, CustomActions> = keyberon:
     {
         [Kb1   Kb2 Kb3     Kb4    Kb5  Grave  Kb6  Kb7      Kb8     Kb9    Kb0    Minus]
         [Q     W   E       R      T    Tab    Y    U        I       O      P      LBracket]
-        [A     S   D       F      G    BSpace H    J        K       L      SColon Quote]
+        [A     S   {D_ALT} {F_L1} G    BSpace H    J        {K_ALT} L      SColon Quote]
         [Z     X   C       V      B    Enter  N    M        Comma   Dot    Slash  Bslash  ]
         [LCtrl (1) LGui    LShift LAlt Space  RAlt RBracket Equal   Delete RShift RCtrl]
     }
