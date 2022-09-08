@@ -64,9 +64,42 @@ impl<T> ResultExt<T> for Result<T, Infallible> {
     }
 }
 
+pub const NUM_LEDS: u8 = 4+12*5;
 pub struct Leds<SPI> {
     ws: ws2812::Ws2812<SPI>,
-    leds: [RGB8; 10],
+    leds: [RGB8; NUM_LEDS as usize],
+}
+
+impl<SPI, E> Leds<SPI>
+    where
+        SPI: FullDuplex<u8, Error = E>,
+{
+    fn keys_set(&mut self, line: u8, col: u8, status: bool) {
+
+        //  ,- 3, 2, 1, 0] <- Array LEDs starts on status, from the right.
+        //  |
+        //  `----------------------------------------------------,
+        //                                                       |
+        //  ,-- 15, 14, 13, 12, 11, 10,  9,  8,  7,  6,  5,  4, <'  line 0
+        //  |
+        //  `-> 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,...  line 1
+        //
+        //  col: 0   1   2   3   4   5   6   7   8   9  10  11
+
+        let coord = (4 + (line * 12) + (if line%2 != 0 {11-col} else {col})) as usize;
+
+        if status {
+            self.leds[coord] = colors::BLUE;
+        } else {
+            self.leds[coord] = colors::BLACK;
+        }
+    }
+
+    fn refresh(&mut self) {
+        if self.ws.write(brightness(self.leds.iter().cloned(), NUM_LEDS)).is_err() {
+            panic!();
+        }
+    }
 }
 
 impl<SPI, E> keyberon::keyboard::Leds for Leds<SPI>
@@ -79,7 +112,7 @@ where
         } else {
             self.leds[0] = colors::BLACK;
         }
-        if self.ws.write(brightness(self.leds.iter().cloned(), 10)).is_err() {
+        if self.ws.write(brightness(self.leds.iter().cloned(), NUM_LEDS)).is_err() {
             panic!();
         }
     }
@@ -90,7 +123,7 @@ where
         } else {
             self.leds[1] = colors::BLACK;
         }
-        if self.ws.write(brightness(self.leds.iter().cloned(), 10)).is_err() {
+        if self.ws.write(brightness(self.leds.iter().cloned(), NUM_LEDS)).is_err() {
             panic!();
         }
     }
@@ -101,7 +134,7 @@ where
         } else {
             self.leds[3] = colors::BLACK;
         }
-        if self.ws.write(brightness(self.leds.iter().cloned(), 10)).is_err() {
+        if self.ws.write(brightness(self.leds.iter().cloned(), NUM_LEDS)).is_err() {
             panic!();
         }
 
@@ -295,7 +328,7 @@ impl Backlight {
 }
 
 
-#[app(device = crate::hal::pac, peripherals = true, dispatchers = [CEC_CAN])]
+#[app(device = crate::hal::pac, peripherals = true, dispatchers = [CEC_CAN, SPI2])]
 mod app {
     use super::*;
 
@@ -375,7 +408,7 @@ mod app {
 
         // Do a simple smooth blink at start
         let mut delay = Delay::new(c.core.SYST, &rcc);
-        let tmpleds = [colors::GREEN; 10];
+        let tmpleds = [colors::GREEN; NUM_LEDS as usize];
         for i in (0..100).chain((0..100).rev()) {
             ws.write(brightness(tmpleds.iter().cloned(), i)).unwrap();
             delay.delay_ms(5u8);
@@ -383,7 +416,7 @@ mod app {
 
         let mut leds = Leds {
             ws,
-            leds: [colors::BLACK; 10],
+            leds: [colors::BLACK; NUM_LEDS as usize],
         };
 
         leds.ws.write(leds.leds.iter().cloned()).unwrap();
@@ -502,7 +535,6 @@ mod app {
             _ => (),
         }
 
-
         let report: KbHidReport = c.shared.layout.keycodes().collect();
         if !c
             .shared
@@ -519,6 +551,25 @@ mod app {
         c.shared.layout.event(event)
     }
 
+    #[task(priority = 1, capacity = 16, shared = [usb_class])]
+    fn handle_led_matrix(mut c: handle_led_matrix::Context, event: Event) {
+        c.shared.usb_class.lock(|k| {
+            let leds = k.device_mut().leds_mut();
+            match event {
+                Event::Press(line, col) => leds.keys_set(line, col, true),
+                Event::Release(line, col) => leds.keys_set(line, col, false),
+            }
+        });
+    }
+
+    #[task(priority = 1, capacity = 8, shared = [usb_class])]
+    fn refresh_led_matrix(mut c: refresh_led_matrix::Context) {
+        c.shared.usb_class.lock(|k| {
+            let leds = k.device_mut().leds_mut();
+            leds.refresh();
+        });
+    }
+
     #[task(
         binds = TIM3,
         priority = 1,
@@ -532,8 +583,14 @@ mod app {
             .debouncer
             .events(c.local.matrix.get().get())
         {
+            // Better would be to reset all LEDs on error to avoid any strange setuprrr
+            handle_led_matrix::spawn(event).unwrap_or_default();
             handle_event::spawn(event).unwrap();
         }
+
+        // will be refresh when slot available
+        refresh_led_matrix::spawn().unwrap_or_default();
+
         tick_keyberon::spawn().unwrap();
     }
 }
