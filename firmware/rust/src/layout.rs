@@ -24,6 +24,8 @@ pub static FD : CustomActions = CustomActions::FreqDown;
 #[cfg(not(feature = "testmode"))]
 #[rustfmt::skip]
 
+
+// HoldTap for real keys
 const D_ALT: Action = HoldTap {
     timeout: 200,
     tap_hold_interval: 0,
@@ -47,6 +49,15 @@ const F_L1: Action = HoldTap {
     hold: &l(1),
     tap: &k(F),
 };
+
+// HoldTap for LED control
+// const Kb1_Color: Action = HoldTap {
+//     timeout: 200,
+//     tap_hold_interval: 0,
+//     config: HoldTapConfig::Default,
+//     hold: &Action::Custom(CC),
+//     tap: &k(Kb1),
+// };
 
 pub static LAYERS: keyberon::layout::Layers<12, 5, 2, CustomActions> = keyberon::layout::layout! {
     {

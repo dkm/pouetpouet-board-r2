@@ -74,7 +74,7 @@ impl<SPI, E> Leds<SPI>
     where
         SPI: FullDuplex<u8, Error = E>,
 {
-    fn keys_set(&mut self, line: u8, col: u8, status: bool) {
+    fn set_key_led(&mut self, line: u8, col: u8, status: bool, backlight: &Backlight) {
 
         //  ,- 3, 2, 1, 0] <- Array LEDs starts on status, from the right.
         //  |
@@ -89,14 +89,14 @@ impl<SPI, E> Leds<SPI>
         let coord = (4 + (line * 12) + (if line%2 != 0 {11-col} else {col})) as usize;
 
         if status {
-            self.leds[coord] = colors::BLUE;
+            self.leds[coord] = backlight.key_color;
         } else {
             self.leds[coord] = colors::BLACK;
         }
     }
 
-    fn refresh(&mut self) {
-        if self.ws.write(brightness(self.leds.iter().cloned(), NUM_LEDS)).is_err() {
+    fn refresh(&mut self, backlight: &Backlight) {
+        if self.ws.write(brightness(self.leds.iter().cloned(), backlight.key_brightness)).is_err() {
             panic!();
         }
     }
@@ -152,6 +152,9 @@ pub enum BacklightMode {
 pub struct Backlight {
     mode: BacklightMode,
     brightness: u8,
+
+    key_color : RGB8,
+    key_brightness: u8,
 }
 
 trait ColorSeq {
@@ -465,6 +468,9 @@ mod app {
                 backlight: Backlight {
                     mode: BacklightMode::Off,
                     brightness: 8,
+
+                    key_color: colors::BLUE,
+                    key_brightness: 50,
                 },
             },
 
@@ -486,59 +492,69 @@ mod app {
         });
     }
 
-    #[task(priority = 2, shared = [usb_dev, usb_class, layout, backlight])]
+
+    #[task(priority = 1, shared = [usb_class, backlight])]
+    fn handle_custom_action (mut c: handle_custom_action::Context, tick: keyberon::layout::CustomEvent<CustomActions>) {
+        // This does not work
+        panic!();
+
+        let b = c.shared.backlight;
+
+        c.shared.usb_class.lock(|u|{
+            match tick {
+                keyberon::layout::CustomEvent::Release(CustomActions::LightUp) => {
+                    let bl_val = &mut b.brightness;
+                    *bl_val = if *bl_val == 100 { 100 } else { *bl_val + 1 };
+
+                    let leds = u.device_mut().leds_mut();
+                    if leds.ws
+                        .write(brightness(leds.leds.iter().cloned(), *bl_val)).is_err() {
+                            panic!();
+                        }
+
+                }
+                keyberon::layout::CustomEvent::Release(CustomActions::LightDown) => {
+                    let bl_val = &mut b.brightness;
+                    *bl_val = if *bl_val == 0 { 0 } else { *bl_val - 1 };
+
+                    let leds = u.device_mut().leds_mut();
+                    if leds.ws
+                        .write(brightness(leds.leds.iter().cloned(), *bl_val)).is_err() {
+                            panic!();
+                        }
+                }
+                keyberon::layout::CustomEvent::Release(CustomActions::ColorCycle) => {
+                    b.next_color();
+                }
+                keyberon::layout::CustomEvent::Release(CustomActions::ModeCycle) => {
+                    b.next_mode();
+                }
+                keyberon::layout::CustomEvent::Release(CustomActions::FreqUp) => {
+                    b.change_freq(true);
+                }
+                keyberon::layout::CustomEvent::Release(CustomActions::FreqDown) => {
+                    b.change_freq(false);
+                }
+                _ => (),
+            }
+        });
+    }
+
+    #[task(priority = 2, shared = [usb_dev, usb_class, layout])]
     fn tick_keyberon(mut c: tick_keyberon::Context) {
         let tick = c.shared.layout.tick();
+
         if c.shared.usb_dev.lock(|d| d.state()) != UsbDeviceState::Configured {
             return;
         }
-        // match tick {
-        //     CustomEvent::Release(()) => unsafe { cortex_m::asm::bootload(0x1FFFC800 as _) },
-        //     _ => (),
-        // }
 
-        match tick {
-            keyberon::layout::CustomEvent::Release(CustomActions::LightUp) => {
-                let bl_val = &mut c.shared.backlight.brightness;
-                *bl_val = if *bl_val == 100 { 100 } else { *bl_val + 1 };
-                c.shared.usb_class.lock(|k| {
-                    let leds = k.device_mut().leds_mut();
-                    if leds.ws
-                        .write(brightness(leds.leds.iter().cloned(), *bl_val)).is_err() {
-                            panic!();
-                        }
-                });
-            }
-            keyberon::layout::CustomEvent::Release(CustomActions::LightDown) => {
-                let bl_val = &mut c.shared.backlight.brightness;
-                *bl_val = if *bl_val == 0 { 0 } else { *bl_val - 1 };
-                c.shared.usb_class.lock(|k| {
-                    let leds = k.device_mut().leds_mut();
-                    if leds.ws
-                        .write(brightness(leds.leds.iter().cloned(), *bl_val)).is_err() {
-                            panic!();
-                        }
-                });
-            }
-            keyberon::layout::CustomEvent::Release(CustomActions::ColorCycle) => {
-                c.shared.backlight.next_color();
-            }
-            keyberon::layout::CustomEvent::Release(CustomActions::ModeCycle) => {
-                c.shared.backlight.next_mode();
-            }
-            keyberon::layout::CustomEvent::Release(CustomActions::FreqUp) => {
-                c.shared.backlight.change_freq(true);
-            }
-            keyberon::layout::CustomEvent::Release(CustomActions::FreqDown) => {
-                c.shared.backlight.change_freq(false);
-            }
-            _ => (),
-        }
+        // This does not work. Need to redesign LED sharing and avoid
+        // low-prio task access to usb_class.
+
+        // handle_custom_action::spawn(tick).unwrap();
 
         let report: KbHidReport = c.shared.layout.keycodes().collect();
-        if !c
-            .shared
-            .usb_class
+        if !c.shared.usb_class
             .lock(|k| k.device_mut().set_keyboard_report(report.clone()))
         {
             return;
@@ -551,22 +567,26 @@ mod app {
         c.shared.layout.event(event)
     }
 
-    #[task(priority = 1, capacity = 16, shared = [usb_class])]
+    #[task(priority = 1, capacity = 16, shared = [usb_class, backlight])]
     fn handle_led_matrix(mut c: handle_led_matrix::Context, event: Event) {
+
+        let backlight = c.shared.backlight;
         c.shared.usb_class.lock(|k| {
             let leds = k.device_mut().leds_mut();
             match event {
-                Event::Press(line, col) => leds.keys_set(line, col, true),
-                Event::Release(line, col) => leds.keys_set(line, col, false),
+                Event::Press(line, col) => leds.set_key_led(line, col, true, backlight),
+                Event::Release(line, col) => leds.set_key_led(line, col, false, backlight),
             }
         });
     }
 
-    #[task(priority = 1, capacity = 8, shared = [usb_class])]
+    #[task(priority = 1, capacity = 8, shared = [usb_class, backlight])]
     fn refresh_led_matrix(mut c: refresh_led_matrix::Context) {
+
+        let backlight = c.shared.backlight;
         c.shared.usb_class.lock(|k| {
             let leds = k.device_mut().leds_mut();
-            leds.refresh();
+            leds.refresh(backlight);
         });
     }
 
@@ -583,7 +603,9 @@ mod app {
             .debouncer
             .events(c.local.matrix.get().get())
         {
-            // Better would be to reset all LEDs on error to avoid any strange setuprrr
+            // Better would be to reset all LEDs on error to avoid any strange
+            // setup.
+
             handle_led_matrix::spawn(event).unwrap_or_default();
             handle_event::spawn(event).unwrap();
         }
