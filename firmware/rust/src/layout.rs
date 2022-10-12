@@ -28,15 +28,15 @@ pub static FD : CustomActions = CustomActions::FreqDown;
 // HoldTap for real keys
 const D_ALT: Action = HoldTap {
     timeout: 200,
-    tap_hold_interval: 0,
+    tap_hold_interval: 199,
     config: HoldTapConfig::Default,
     hold: &k(LAlt),
     tap: &k(D),
 };
 
 const K_ALT: Action = HoldTap {
-    timeout: 1000,
-    tap_hold_interval: 0,
+    timeout: 200,
+    tap_hold_interval: 199,
     config: HoldTapConfig::Default,
     hold: &k(RAlt),
     tap: &k(K),
@@ -44,7 +44,7 @@ const K_ALT: Action = HoldTap {
 
 const F_L1: Action = HoldTap {
     timeout: 200,
-    tap_hold_interval: 0,
+    tap_hold_interval: 199,
     config: HoldTapConfig::Default,
     hold: &l(1),
     tap: &k(F),
