@@ -1,4 +1,4 @@
-use keyberon::action::{k, l, m, Action::*, HoldTapConfig};
+use keyberon::action::{k, l, m, Action::*, HoldTapConfig, HoldTapAction};
 use keyberon::key_code::KeyCode::*;
 
 type Action = keyberon::action::Action<CustomActions>;
@@ -24,31 +24,29 @@ pub static FD : CustomActions = CustomActions::FreqDown;
 #[cfg(not(feature = "testmode"))]
 #[rustfmt::skip]
 
-
-// HoldTap for real keys
-const D_ALT: Action = HoldTap {
+const D_ALT: Action = HoldTap(&HoldTapAction {
     timeout: 200,
     tap_hold_interval: 199,
     config: HoldTapConfig::Default,
-    hold: &k(LAlt),
-    tap: &k(D),
-};
+    hold: Action::KeyCode(LAlt),
+    tap: Action::KeyCode(D),
+});
 
-const K_ALT: Action = HoldTap {
+const K_ALT: Action = HoldTap(&HoldTapAction {
     timeout: 200,
     tap_hold_interval: 199,
     config: HoldTapConfig::Default,
-    hold: &k(RAlt),
-    tap: &k(K),
-};
+    hold: Action::KeyCode(RAlt),
+    tap: Action::KeyCode(K),
+});
 
-const F_L1: Action = HoldTap {
+const F_L1: Action = HoldTap(&HoldTapAction {
     timeout: 200,
     tap_hold_interval: 199,
     config: HoldTapConfig::Default,
-    hold: &l(1),
-    tap: &k(F),
-};
+    hold: Action::Layer(1),
+    tap: Action::KeyCode(F),
+});
 
 // HoldTap for LED control
 // const Kb1_Color: Action = HoldTap {
