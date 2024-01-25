@@ -5,7 +5,7 @@
 switch_hole=14.0;// by spec should be 14, can be adjusted for printer imprecision
 thickness=2;// plate thickness
 
-m2_hole=2;
+m2_hole=2.2;
 
 linear_extrude(thickness) // uncomment for 3D model
 plate();
@@ -38,6 +38,6 @@ module plate() {
      difference() {
           outline();
           key_placement() square(switch_hole, center=true);
-          m2_hole_placement() translate([inter_switch/2, -inter_switch/2]) circle(m2_hole);
+          m2_hole_placement() translate([inter_switch/2, -inter_switch/2]) circle(m2_hole, $fn=30);
      }
 }
