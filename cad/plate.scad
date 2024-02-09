@@ -2,12 +2,25 @@
 // https://github.com/TeXitoi/keyseebee/tree/master/cad
 // Modified for https://github.com/dkm/pouetpouet-board-r2
 
-switch_hole=14.0;// by spec should be 14, can be adjusted for printer imprecision
-thickness=2;// plate thickness
+// Configuration
+// You may need to adjust, depending on the actual size of 
+// your screws/standoffs and the printer/building process
+// imprecision.
 
-m2_hole=2.2;
+// by spec should be 14, can be adjusted for printer imprecision
+switch_hole=14.0;
 
-linear_extrude(thickness) // uncomment for 3D model
+// Plate thickness
+// The thicker, the stronger...
+// The plate + standoff = 5mm
+// With 3mm standoff, plate must be 2mm.
+thickness=2;
+
+// Better be a bit smaller than bigger. May depend on your
+// standoff sizes.
+m2_hole=2;
+
+linear_extrude(thickness)
 plate();
 
 // Corresponds to the switch footprint in KiCad.
