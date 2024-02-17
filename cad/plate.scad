@@ -8,7 +8,8 @@
 // imprecision.
 
 // by spec should be 14, can be adjusted for printer imprecision
-switch_hole=14.0;
+// 14 => needs force to "click" the switch
+switch_hole=14.2;
 
 // Plate thickness
 // The thicker, the stronger...
@@ -18,7 +19,9 @@ thickness=2;
 
 // Better be a bit smaller than bigger. May depend on your
 // standoff sizes.
-m2_hole=2;
+// 2.2 => norm, but too large
+// 2   => still too large
+m2_hole=1.8;
 
 linear_extrude(thickness)
 plate();
