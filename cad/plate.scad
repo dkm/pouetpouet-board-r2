@@ -17,11 +17,8 @@ switch_hole=14.2;
 // With 3mm standoff, plate must be 2mm.
 thickness=2;
 
-// Better be a bit smaller than bigger. May depend on your
-// standoff sizes.
-// 2.2 => norm, but too large
-// 2   => still too large
-m2_hole=1.8;
+// M2 screw outer diam between 1.9 and 2.
+m2_hole=2.1;
 
 linear_extrude(thickness)
 plate();
@@ -54,6 +51,6 @@ module plate() {
      difference() {
           outline();
           key_placement() square(switch_hole, center=true);
-          m2_hole_placement() translate([inter_switch/2, -inter_switch/2]) circle(m2_hole, $fn=30);
+          m2_hole_placement() translate([inter_switch/2, -inter_switch/2]) circle(d=m2_hole, $fn=30);
      }
 }
